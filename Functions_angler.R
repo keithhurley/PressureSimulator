@@ -40,7 +40,7 @@ anglers_place_boat<-function(lakeGeom,
   set.seed(round(myRandomSeed*0.356/0.85324,0))
   
   if (anglerBoatDistribution=="random") {
-    myAnglers<-st_sample(st_buffer(lakeGeom, -100), size=numberAnglers) %>%
+    myAnglers<-st_sample(st_buffer(lakeGeom, -10), size=numberAnglers) %>%
       as.data.frame() %>%
       st_as_sf(crs = 5514) 
     myAnglers$anglerType="Boat"
