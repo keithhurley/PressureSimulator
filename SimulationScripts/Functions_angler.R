@@ -11,13 +11,16 @@ anglers_place_bank<-function(lakeGeom,
                              numberAnglers=100,
                              anglerBankDistribution="random", 
                              anglerBankRestrictions, 
-                             anglerBankProbs){
+                             anglerBankProbs,
+                             mySeed){
   
   #set seed
-  set.seed(round(myRandomSeed*0.5475/0.213234,0))
+  set.seed(round(mySeed*0.5475/0.213234,0))
   
   if (anglerBankDistribution=="random") {
-    myAnglers<-lakes_round_base %>% st_cast("LINESTRING") %>% st_line_sample(n=numberAnglers, type="random")
+    myAnglers<-lakeGeom %>% 
+      st_cast("LINESTRING") %>% 
+      st_line_sample(n=numberAnglers, type="random")
     myAnglers<-myAnglers %>% st_cast("POINT")
     myAnglers<-st_set_crs(myAnglers, 5514)
     myAnglers<-st_cast(myAnglers) %>%
@@ -34,10 +37,11 @@ anglers_place_boat<-function(lakeGeom,
                              numberAnglers=100,
                              anglerBoatDistribution="random", 
                              anglerBoatRestrictions, 
-                             anglerBoatProbs){
+                             anglerBoatProbs,
+                             mySeed){
   
   #set seed
-  set.seed(round(myRandomSeed*0.356/0.85324,0))
+  set.seed(round(mySeed*0.356/0.85324,0))
   
   if (anglerBoatDistribution=="random") {
     myAnglers<-st_sample(st_buffer(lakeGeom, -10), size=numberAnglers) %>%
@@ -50,14 +54,15 @@ anglers_place_boat<-function(lakeGeom,
 }
 
 anglers_assign_method<-function(tmpAnglers=myBankAnglers,
-                                percentLure=50) {
+                                percentLure=50,
+                                mySeed) {
   
   #calculate percent bait anglers
   percentLure<-(percentLure/100)
   percentBait<-((100-percentLure)/100)
   
   #set seed
-  set.seed<-round(myRandomSeed*0.12345/0.2134,0)
+  set.seed<-round(mySeed*0.12345/0.2134,0)
   
   #assign methods
   tmpAnglers$anglerMethod<-sample(c("Lure", "Bait"), size=nrow(tmpAnglers), replace=TRUE, prob=c(percentLure, percentBait))
@@ -76,7 +81,8 @@ anglers_place<-function(lakeGeom,
                         anglerBoatRestrictions=NA,
                         anglerBoatProbs=NA,
                         anglerBankLureProb=100,
-                        anglerBoatLureProb=100){
+                        anglerBoatLureProb=100,
+                        mySeed){
   
   #calculate remaining precentages
   percentBoat<-(100-percentBank)
@@ -87,9 +93,12 @@ anglers_place<-function(lakeGeom,
                                   numberAnglers=totalAnglers*(percentBank/100),
                                   anglerBankDistribution = "random",
                                   anglerBankRestrictions = anglerBankRestrictions,
-                                  anglerBankProbs=anglerBankProbs)
+                                  anglerBankProbs=anglerBankProbs,
+                                  mySeed)
     #assign angler method types
-    myBankAnglers<-anglers_assign_method(myBankAnglers, anglerBankLureProb-50)
+    myBankAnglers<-anglers_assign_method(myBankAnglers, 
+                                         anglerBankLureProb-50,
+                                         mySeed)
   } else {
     myBankAnglers<-NA
   }
@@ -100,9 +109,12 @@ anglers_place<-function(lakeGeom,
                                       numberAnglers=totalAnglers*(percentBoat/100),
                                       anglerBoatDistribution = "random",
                                       anglerBoatRestrictions = anglerBoatRestrictions,
-                                      anglerBoatProbs=anglerBoatProbs)
+                                      anglerBoatProbs=anglerBoatProbs,
+                                      mySeed)
     #assign angler method types
-    myBoatAnglers<-anglers_assign_method(myBoatAnglers, anglerBoatLureProb-50)
+    myBoatAnglers<-anglers_assign_method(myBoatAnglers, 
+                                         anglerBoatLureProb-50, 
+                                         mySeed)
   } else {
     myBoatAnglers<-NA
   }

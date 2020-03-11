@@ -1,8 +1,12 @@
 library(sf)
 library(tidyverse)
-source("Functions_fish.R")
-source("Functions_angler.R")
-source("Functions_casts.R")
+source("./SimulationScripts/Functions_fish.R")
+source("./SimulationScripts/Functions_angler.R")
+source("./SimulationScripts/Functions_casts.R")
+library(profvis)
+library(tictoc)
+
+tic()
 
 myRandomSeed=12345
 
@@ -15,53 +19,52 @@ old<-theme_set(myTheme)
 
 load(file="./data/lakes/round")
 
-myFish<-fish_place_random(lakeGeom=lakes_round_base)
+myFish<-fish_place_random(lakeGeom=lakes_round_base, numberFish=100)
 
-ggplot() +
-  geom_sf(data=lakes_round_base, fill="lightskyblue") +
-  geom_sf(data=myFish) +
-  labs(title="Fish") 
+# ggplot() +
+#   geom_sf(data=lakes_round_base, fill="lightskyblue") +
+#   geom_sf(data=myFish) +
+#   labs(title="Fish") 
 
 myAnglers<-anglers_place(lakeGeom=lakes_round_base,
-                         totalAnglers = 500,
+                         totalAnglers = 30000,
                          percentBank = 50)
-ggplot() +
-  geom_sf(data=lakes_round_base, fill="lightskyblue") +
-  geom_sf(data=myAnglers, color="red", size=2) +
-  #geom_sf(data=myFish, color="black", size=1.5) +
-  labs(title="Anglers") 
+# ggplot() +
+#   geom_sf(data=lakes_round_base, fill="lightskyblue") +
+#   geom_sf(data=myAnglers, color="red", size=2) +
+#   #geom_sf(data=myFish, color="black", size=1.5) +
+#   labs(title="Anglers") 
 
-myCasts<-casts_create_df(myAnglers, numberCastsPerAngler = 60)
+myCasts<-casts_place(myAnglers, numberCastsPerAngler=20)
 
-#myCasts<-casts_create_angler_movement()
+ # ggplot() +
+ #  geom_sf(data=myCasts_lines[3001:3060,]) #+
+ #  #geom_sf(data=myFish, color="black", size=1.5)
 
-myCasts_coords<-cast_create_cast_coords(myCasts)
+#process spatial data for interactions
+tmpFish<-st_intersects(st_buffer(myFish, 1), myCasts)
 
-myCasts_coords<-cast_create_splashdown_coords(myCasts_coords)
+toc()
 
-myCasts_lines<-create_casts_poly(myCasts_coords)
-
-ggplot() +
-  geom_sf(data=myCasts_lines[1:60,]) #+
-  #geom_sf(data=myFish, color="black", size=1.5) 
-
-tmpFish<-st_intersects(st_buffer(myFish, 1), myCasts_lines)
+#add interaction count to myFish
 myFish$castInteractions<-tmpFish %>% lengths
+table(myFish$castInteractions)
 
-tmpCasts<-st_intersects(myCasts_lines, st_buffer(myFish, 1))
-myCasts_lines$fishInteractions<-tmpCasts %>% lengths
+#create dataframe of all interactions
+myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
+myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
 
-unlist(tmpFish[tmpFish %>% lengths>0])
+
+ggplot() +
+  geom_sf(data=myInteractions[c(1,3),]) +
+  geom_sf(data=myCasts[myCasts %>% filter(anglerId %in% unique(myInteractions$anglerId) & castId %in% unique(myInteractions$castId)),])
 
 
-tmp %>% lengths
-tmp[tmp %>% lengths>0]
-
-myCasts_lines[3195,]
 
 ggplot() +
   #geom_sf(data=lakes_round_base, fill="lightskyblue") +
-  geom_sf(data=myCasts_lines %>% filter(anglerId == myCasts_lines[3195,]$anglerId)) +
+  geom_sf(data=myCasts %>% filter(anglerId == myCasts[3195,]$anglerId)) +
   geom_sf(data=st_buffer(myFish[tmp %>% lengths>0,],1), fill="red", color="transparent", alpha=0.4) +
   geom_sf(data=myFish[tmp %>% lengths>0,], size=1, color="black") 
 
