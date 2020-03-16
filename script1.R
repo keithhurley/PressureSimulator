@@ -6,7 +6,6 @@ source("./SimulationScripts/Functions_casts.R")
 library(profvis)
 library(tictoc)
 
-tic()
 
 myRandomSeed=12345
 
@@ -27,13 +26,22 @@ myFish<-fish_place_random(lakeGeom=lakes_round_base, numberFish=100)
 #   labs(title="Fish") 
 
 myAnglers<-anglers_place(lakeGeom=lakes_round_base,
-                         totalAnglers = 30000,
-                         percentBank = 50)
-# ggplot() +
-#   geom_sf(data=lakes_round_base, fill="lightskyblue") +
-#   geom_sf(data=myAnglers, color="red", size=2) +
-#   #geom_sf(data=myFish, color="black", size=1.5) +
-#   labs(title="Anglers") 
+                         anglerBankDistribution = "Random",
+                         anglerBoatDistribution = "Random",
+                         totalAnglers = 100000,
+                         percentBank = 50,
+                         meanPartySizeBank=1,
+                         meanPartySizeBoat=1,
+                         maxPartySizeBoat=4,
+                         mySeed=myRandomSeed)
+tic()
+ggplot() +
+  geom_sf(data=lakes_round_base, fill="lightskyblue") +
+  geom_sf(data=st_buffer(myAnglers, 35.89), color="red") +
+  geom_point(data=myAnglers %>% st_coordinates() %>% data.frame(), aes(x=X, y=Y),  color="black", size=0.5) +
+  #geom_sf(data=myFish, color="black", size=1.5) +
+  labs(title="Anglers")
+toc()
 
 myCasts<-casts_place(myAnglers, numberCastsPerAngler=20)
 

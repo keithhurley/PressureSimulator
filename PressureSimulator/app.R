@@ -16,7 +16,54 @@ ui <- fluidPage(
                          navlistPanel(
                              tabPanel("Waterbody"),
                              tabPanel("Anglers",
-                                      "Some Text Here"),
+                                      selectInput("ipAnglerDistributionType",
+                                                  "Distribution Type",
+                                                  choices=c("Random", 
+                                                            "Clustered By Party"),
+                                                  selected="Random"),
+                                      tags$span(style="font-weight:bold",
+                                                "Boat:"),
+                                      tags$div(style="background: gainsboro; padding:10px",
+                                      sliderInput("ipPercentBoat",
+                                                  "Percent Boat Anglers",
+                                                  min=0,
+                                                  max=100,
+                                                  step=5,
+                                                  value=50),
+                                      sliderInput("ipMeanPartySizeBoat", 
+                                                  "Mean Party Size - Boat",
+                                                  min = 1,
+                                                  max = 10,
+                                                  step = 0.1,
+                                                  value = 1.9),
+                                      sliderInput("ipMaxPartySizeBoat", 
+                                                  "Mean Party Size - Boat",
+                                                  min = 1,
+                                                  max = 10,
+                                                  step = 1,
+                                                  value = 4)),
+                                      tags$br(),
+                                      tags$span(style="font-weight:bold",
+                                                "Bank:"),
+                                      tags$div(style="background: gainsboro; padding:10px",
+                                               sliderInput("ipMeanPartySizeBank", 
+                                                  "Mean Party Size - Bank",
+                                                  min = 1,
+                                                  max = 10,
+                                                  step = 0.1,
+                                                  value = 2.3),
+                                      sliderInput("ipMaxPartySizeBank", 
+                                                  "Mean Party Size - Bank",
+                                                  min = 1,
+                                                  max = 10,
+                                                  step = 1,
+                                                  value = 4),
+                                      sliderInput("ipPercentBank",
+                                                  "Percent Bank Anglers",
+                                                  min=0,
+                                                  max=100,
+                                                  step=5,
+                                                  value=50))),
                              tabPanel("Fish",
                                       sliderInput("ipNumberFish", 
                                                   "Number of fish:",
@@ -24,7 +71,25 @@ ui <- fluidPage(
                                                   max = 1000,
                                                   step = 5,
                                                   value = 100)), 
-                             tabPanel("Pressure"),
+                             tabPanel("Pressure",
+                                      sliderInput("ipHoursPerAcre", 
+                                                  "Hours Per Acre:",
+                                                  min = 5,
+                                                  max = 1000,
+                                                  step = 5,
+                                                  value = 100),
+                                      sliderInput("ipMeanTripLength", 
+                                                  "Mean Trip Length",
+                                                  min = 0.5,
+                                                  max = 10,
+                                                  step = 0.5,
+                                                  value = 3),
+                                      sliderInput("ipCastsPerHour", 
+                                                  "Casts Per Hour",
+                                                  min = 4,
+                                                  max = 120,
+                                                  step = 1,
+                                                  value = 60)),
                              tabPanel("Simulations",
                                       numericInput("ipSeed",
                                                    "Enter Seed:",
@@ -47,7 +112,23 @@ ui <- fluidPage(
                )               )
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
+    
+    #adjust boat/bank sliders to equal 100
+    observeEvent(input$ipPercentBoat,
+                 {
+                     updateSliderInput(session,
+                                       "ipPercentBank", 
+                                       value=100-input$ipPercentBoat)
+                 })
+    observeEvent(input$ipPercentBank,
+                 {
+                     updateSliderInput(session,
+                                       "ipPercentBoat", 
+                                       value=100-input$ipPercentBank)
+                 })
+    
+    #run Simulations
     observeEvent(input$doSims,
                 {
                     #RUN SIMULATION HERE
@@ -70,9 +151,21 @@ server <- function(input, output) {
                     showNotification("Placing Anglers", duration=10, closeButton=FALSE)
                     
                     myAnglers<-anglers_place(lakeGeom=lakes_round_base,
+                                             anglerBoatDistribution = input$ipAnglerDistributionType,
+                                             anglerBankDistribution = input$ipAnglerDistributionType,
                                              totalAnglers = 1000,
-                                             percentBank = 50,
+                                             meanPartySizeBoat=input$ipMeanPartySizeBoat,
+                                             maxPartySizeBoat=input$ipMaxPartySizeBoat,
+                                             meanPartySizeBank=input$ipMeanPartySizeBank,
+                                             maxPartySizeBank=input$ipMaxPartySizeBank,
+                                             percentBank = input$ipPercentBank,
                                              mySeed=input$ipSeed)
+                    
+                    print(ggplot() +
+                       geom_sf(data=lakes_round_base, fill="lightskyblue") +
+                       geom_sf(data=myAnglers, color="red", size=2) +
+                       #geom_sf(data=myFish, color="black", size=1.5) +
+                       labs(title="Anglers"))
                     
                     showNotification("Simulating Casts", duration=10, closeButton=FALSE)
 
