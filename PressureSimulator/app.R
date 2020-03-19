@@ -7,7 +7,6 @@ source("../SimulationScripts/Functions_casts.R")
 source("../SimulationScripts/Functions_themes.R")
 library(tictoc)
 
-
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
@@ -165,6 +164,7 @@ server <- function(input, output, session) {
                  {
                      #load(file="./data/lakes/round_1.rData")
                      load(file=paste("../data/lakes/", input$ipLakeGeom, ".rData", sep=""))
+                     myValues$lake=lake
                      myValues$lakeName=lake$name[1]
                      myValues$lakeAcres=as.numeric(round(st_area(lake)/4046.86,1))
                  })
@@ -209,18 +209,18 @@ server <- function(input, output, session) {
                     
                     showNotification("Placing Fish", duration=10, closeButton=FALSE)
 
-                    myFish<-fish_place_random(lakeGeom=lake,
+                    myFish<-fish_place_random(lakeGeom=myValues$lake,
                         numberFish=input$ipNumberFish,
                         fishShorelineBuffer = input$ipFishShorelineBuffer,
                         mySeed=input$ipSeed)
                 
                     showNotification("Placing Anglers", duration=10, closeButton=FALSE)
-                    
-                    myAnglers<-anglers_place(lakeGeom=lake,
+
+                    myAnglers<-anglers_place(lakeGeom=myValues$lake,
                                              anglerBoatDistribution = input$ipAnglerDistributionType,
                                              anglerBankDistribution = input$ipAnglerDistributionType,
-                                             anglerBoatPartyRadius = input$ipBoatAnglerPartyRadius,
-                                             anglerBankPartyRadius = input$ipBankAnglerPartyRadius,
+                                             anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
+                                             anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
                                              totalAnglers = 1000,
                                              meanPartySizeBoat=input$ipMeanPartySizeBoat,
                                              maxPartySizeBoat=input$ipMaxPartySizeBoat,
@@ -238,7 +238,7 @@ server <- function(input, output, session) {
                     
                     showNotification("Simulating Casts", duration=10, closeButton=FALSE)
 
-                    myCasts<-casts_place(lakeGeom=lake,
+                    myCasts<-casts_place(lakeGeom=myValues$lake,
                                          myAnglers, 
                                          numberCastsPerAngler=20,
                                          mySeed=input$ipSeed)

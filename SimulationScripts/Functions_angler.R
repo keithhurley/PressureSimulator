@@ -76,15 +76,16 @@ anglers_place_bank<-function(lakeGeom,
                              meanPartySizeBank,
                              maxPartySizeBank,
                              anglerBankDistribution,
-                             anglerBankPartyRadius=NA,
-                             anglerBankRestrictions=NA, 
+                             anglerBankPartyRadius,
+                             anglerBankRestrictions, 
                              anglerBankProbs,
                              mySeed){
-  
-  #set seed
+
+    #set seed
   set.seed(round(mySeed*0.5475/0.213234,0))
   
   if (anglerBankDistribution=="Random") {
+
     myAnglers<-lakeGeom %>% 
       st_cast("LINESTRING") %>% 
       st_line_sample(n=numberAnglers, type="random")
@@ -97,14 +98,13 @@ anglers_place_bank<-function(lakeGeom,
     myAnglers$anglerType="Bank"
   }
   
-  if (anglerBankDistribution=="Clustered") {
+  if (anglerBankDistribution=="Clustered By Party") {
 
   #create parties of anglers
   partyList<-anglers_distributeAnglersIntoParties(numberAnglers=numberAnglers,
                                                   meanPartySize=meanPartySizeBank,
                                                   maxPartySize = maxPartySizeBank,
                                                   mySeed=mySeed)
-  
   
   #convert lake polygon to a linestring to get just bank
   lakeGeom_line<-lakeGeom %>% 
@@ -124,13 +124,13 @@ anglers_place_bank<-function(lakeGeom,
     mutate(partyId=as.integer(partyId)) %>%
     mutate(anglerType="Bank") %>%
     left_join(partyList)
-  
+
   #alter row location so subsequent anglers in a party have a different location
   #...within a buffered circle (i.e. a boat)
   #MUST PARELLALIZE this for st_buffer
   cl<-makeCluster(2)
   registerDoParallel(cl)  
-  myAnglers2<-foreach(i=1:nrow(myAnglers), .combine="rbind") %dopar% {
+  myAnglers2<-foreach(i=1:nrow(myAnglers), .combine="rbind") %do% {
     require(dplyr)
     require(sf)
     #don't do expensive buffer and intersection calculations when not necessary
@@ -139,15 +139,19 @@ anglers_place_bank<-function(lakeGeom,
         as.data.frame() %>%
         st_as_sf(crs=5514)
     } else {
-    myTmp<-st_buffer(myAnglers[i,], anglerBankPartyRadius * myAnglers$numberInParty[i])  
+    myTmp<-st_buffer(myAnglers[i,], anglerBankPartyRadius * (myAnglers$numberInParty[i]-1))  
     myTmp<-st_intersection(lakeGeom_line, myTmp)
     myTmp<-st_cast(myTmp, "LINESTRING") %>% 
-      st_line_sample(n=myAnglers$numberInParty[i], type="random") %>% 
+      st_line_sample(n=myAnglers$numberInParty[i], type="random") %>%
       st_cast("POINT") %>%
       st_set_crs(5514) %>% 
       st_cast() %>%
       as.data.frame() %>%
       st_as_sf(crs = 5514)
+    
+    #filter out extras for when the geography buffering of angler 1 creates extras
+    myTmp<-myTmp[1:myAnglers$numberInParty[i],]
+
     }
     return(myTmp)
   }
@@ -167,14 +171,15 @@ anglers_place_bank<-function(lakeGeom,
 
   # ggplot() +
   #   geom_sf(data=lakeGeom)+
-  #   geom_sf(data=st_buffer(myAnglers2 %>% filter(partyAnglerId==1),50), fill="red", alpha=.5, color="red") +
-  #   geom_sf(data=myAnglers2, size=1)
-  
+  #   geom_sf(data=st_buffer(myAnglers2[myAnglers2$partyId==22,] %>% filter(partyAnglerId==1),12), fill="red", alpha=.5, color="red") +
+  #   geom_sf(data=myAnglers2[myAnglers2$partyId==22,], size=1)
+
   myAnglers<-myAnglers2
   myAnglers$anglerType="Bank"
   
 }
   
+  print("Ablut to return")
   return(myAnglers)
 }
 
@@ -201,7 +206,7 @@ anglers_place_boat<-function(lakeGeom,
     myAnglers$anglerType="Boat"
   }
   
-  if (anglerBoatDistribution=="Clustered") {
+  if (anglerBoatDistribution=="Clustered By Party") {
     
     #create parties of anglers
     partyList<-anglers_distributeAnglersIntoParties(numberAnglers=numberAnglers,
@@ -304,13 +309,13 @@ anglers_place<-function(lakeGeom,
                         anglerBankLureProb=100,
                         anglerBoatLureProb=100,
                         mySeed){
-  
+  print(anglerBankPartyRadius)
   #calculate remaining precentages
   percentBoat<-(100-percentBank)
 
   #create dataset of bank anglers with starting position
   if(percentBank>0){
-    myBankAnglers<-anglers_place_bank(lakeGeom,
+    myBankAnglers<-anglers_place_bank(lakeGeom=lakeGeom,
                                   numberAnglers=totalAnglers*(percentBank/100),
                                   meanPartySizeBank=meanPartySizeBank,
                                   maxPartySizeBank=maxPartySizeBank,
@@ -318,7 +323,7 @@ anglers_place<-function(lakeGeom,
                                   anglerBankPartyRadius=anglerBankPartyRadius,
                                   anglerBankRestrictions = anglerBankRestrictions,
                                   anglerBankProbs=anglerBankProbs,
-                                  mySeed)
+                                  mySeed=mySeed)
     #assign angler method types
     myBankAnglers<-anglers_assign_method(myBankAnglers, 
                                          anglerBankLureProb-50,
