@@ -72,11 +72,12 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
 
 
 anglers_place_bank<-function(lakeGeom, 
-                             numberAnglers=100,
-                             meanPartySizeBank=2.3,
-                             maxPartySizeBank=4,
-                             anglerBankDistribution="Random", 
-                             anglerBankRestrictions, 
+                             numberAnglers,
+                             meanPartySizeBank,
+                             maxPartySizeBank,
+                             anglerBankDistribution,
+                             anglerBankPartyRadius=NA,
+                             anglerBankRestrictions=NA, 
                              anglerBankProbs,
                              mySeed){
   
@@ -110,7 +111,7 @@ anglers_place_bank<-function(lakeGeom,
     st_cast("LINESTRING") 
   
   #get random points for each bank party
-    myAnglers<-lakeGeom_line %>% 
+  myAnglers<-lakeGeom_line %>% 
     st_line_sample(n=nrow(partyList), type="random")
   
   myAnglers<-myAnglers %>% 
@@ -138,9 +139,9 @@ anglers_place_bank<-function(lakeGeom,
         as.data.frame() %>%
         st_as_sf(crs=5514)
     } else {
-    myTmp<-st_buffer(myAnglers[i,], 3 * myAnglers$numberInParty[i])  
+    myTmp<-st_buffer(myAnglers[i,], anglerBankPartyRadius * myAnglers$numberInParty[i])  
     myTmp<-st_intersection(lakeGeom_line, myTmp)
-    myTmp<-myTmp %>% 
+    myTmp<-st_cast(myTmp, "LINESTRING") %>% 
       st_line_sample(n=myAnglers$numberInParty[i], type="random") %>% 
       st_cast("POINT") %>%
       st_set_crs(5514) %>% 
@@ -182,16 +183,18 @@ anglers_place_boat<-function(lakeGeom,
                              numberAnglers=1000,
                              meanPartySizeBoat=2,
                              maxPartySizeBoat=4,
-                             anglerBoatDistribution="Random", 
+                             anglerBoatDistribution="Random",
+                             anglerBoatPartyRadius=NA,
                              anglerBoatRestrictions=NA, 
                              anglerBoatProbs=NA,
+                             boatShorelineBuffer,
                              mySeed){
   
   #set seed
   set.seed(round(mySeed*0.356/0.85324,0))
   
   if (anglerBoatDistribution=="Random") {
-    myAnglers<-st_sample(st_buffer(lakeGeom, -10), size=numberAnglers) %>%
+    myAnglers<-st_sample(st_buffer(lakeGeom, (-1*boatShorelineBuffer)), size=numberAnglers) %>%
       as.data.frame() %>%
       st_as_sf(crs = 5514) %>%
       rownames_to_column("partyId")
@@ -208,7 +211,7 @@ anglers_place_boat<-function(lakeGeom,
 
     
     #get random points for each boat
-    myAnglers<-st_buffer(lakeGeom, -10) %>%
+    myAnglers<-st_buffer(lakeGeom, (-1*boatShorelineBuffer)) %>%
       st_sample(size=nrow(partyList)) %>%
       as.data.frame() %>%
       st_as_sf(crs = 5514) %>%
@@ -232,7 +235,7 @@ anglers_place_boat<-function(lakeGeom,
       myTmp<-myAnglers$geometry[i] %>%
         as.data.frame() 
     } else {
-    myTmp<-st_buffer(myAnglers[i,], 5) %>% 
+    myTmp<-st_buffer(myAnglers[i,], anglerBoatPartyRadius) %>% 
       st_sample(size=myAnglers[i,]$numberInParty) %>%
       data.frame()
     }
@@ -252,10 +255,10 @@ anglers_place_boat<-function(lakeGeom,
   #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
   myAnglers2[myAnglers2$partyAnglerId==1,]$geometry<-myAnglers$geometry
                  
-  ggplot() +
-    geom_sf(data=lakeGeom)+ 
-    geom_sf(data=st_buffer(myAnglers2 %>% filter(partyAnglerId==1),5), fill="red", alpha=.5, color="red") +
-    geom_sf(data=myAnglers2, size=1) 
+  # ggplot() +
+  #   geom_sf(data=lakeGeom)+ 
+  #   geom_sf(data=st_buffer(myAnglers2 %>% filter(partyAnglerId==1),5), fill="red", alpha=.5, color="red") +
+  #   geom_sf(data=myAnglers2, size=1) 
                 
   myAnglers<-myAnglers2
   myAnglers$anglerType="Boat"
@@ -285,16 +288,19 @@ anglers_assign_method<-function(tmpAnglers=myBankAnglers,
 anglers_place<-function(lakeGeom,
                         totalAnglers,
                         percentBank,
-                        meanPartySizeBank=2.3,
+                        meanPartySizeBank,
                         meanPartySizeBoat,
                         maxPartySizeBoat,
-                        maxPartySizeBank=10,
-                        anglerBankDistribution="Random",
-                        anglerBoatDistribution="Random",
+                        maxPartySizeBank,
+                        anglerBankDistribution="Clustered",
+                        anglerBoatDistribution="Clustered",
+                        anglerBankPartyRadius,
+                        anglerBoatPartyRadius,
                         anglerBankRestrictions=NA,
                         anglerBankProbs=NA,
                         anglerBoatRestrictions=NA,
                         anglerBoatProbs=NA,
+                        boatShorelineBuffer,
                         anglerBankLureProb=100,
                         anglerBoatLureProb=100,
                         mySeed){
@@ -309,6 +315,7 @@ anglers_place<-function(lakeGeom,
                                   meanPartySizeBank=meanPartySizeBank,
                                   maxPartySizeBank=maxPartySizeBank,
                                   anglerBankDistribution = anglerBankDistribution,
+                                  anglerBankPartyRadius=anglerBankPartyRadius,
                                   anglerBankRestrictions = anglerBankRestrictions,
                                   anglerBankProbs=anglerBankProbs,
                                   mySeed)
@@ -327,9 +334,10 @@ anglers_place<-function(lakeGeom,
                                       meanPartySizeBoat=meanPartySizeBoat,
                                       maxPartySizeBoat=maxPartySizeBoat,
                                       anglerBoatDistribution=anglerBoatDistribution,
+                                      anglerBoatPartyRadius = anglerBoatPartyRadius,
                                       anglerBoatRestrictions = anglerBoatRestrictions,
                                       anglerBoatProbs=anglerBoatProbs,
-                                      mySeed)
+                                      mySeed=mySeed)
     #assign angler method types
     myBoatAnglers<-anglers_assign_method(myBoatAnglers, 
                                          anglerBoatLureProb-50, 
