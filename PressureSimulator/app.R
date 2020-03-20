@@ -110,7 +110,13 @@ ui <- fluidPage(
                                                 min = 0.5,
                                                 max = 2,
                                                 step = 0.5,
-                                                value = 0.5)),
+                                                value = 0.5),
+                                      sliderInput("ipDetectionDistance",
+                                                  "Detection Distance: ",
+                                                  min=0.25,
+                                                  max=10,
+                                                  step=0.25,
+                                                  value=1)),
                              tabPanel("Pressure",
                                       sliderInput("ipHoursPerAcre", 
                                                   "Hours Per Acre:",
@@ -129,7 +135,19 @@ ui <- fluidPage(
                                                   min = 4,
                                                   max = 120,
                                                   step = 1,
-                                                  value = 60)),
+                                                  value = 60),
+                                      sliderInput("ipCastDistanceMean",
+                                                  "Mean Cast Distance",
+                                                  min=1,
+                                                  max=30,
+                                                  step=0.5,
+                                                  value=10),
+                                      sliderInput("ipCastDistanceSd",
+                                                  "Cast Distance Standard Deviation: ",
+                                                  min=0.5,
+                                                  max=5,
+                                                  step=0.5,
+                                                  value=3)),
                              tabPanel("Simulations",
                                       numericInput("ipSeed",
                                                    "Enter Seed:",
@@ -196,8 +214,6 @@ server <- function(input, output, session) {
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
-                    
-                    
                     #RUN SIMULATION HERE
                     tic()
                     
@@ -238,9 +254,11 @@ server <- function(input, output, session) {
                     
                     showNotification("Simulating Casts", duration=10, closeButton=FALSE)
 
-                    myCasts<-casts_place(lakeGeom=myValues$lake,
+                                        myCasts<-casts_place(lakeGeom=myValues$lake,
                                          myAnglers, 
                                          numberCastsPerAngler=20,
+                                         meanCastDistance=input$ipCastDistanceMean,
+                                         sdCastDistance=input$ipCastDistanceSd,
                                          mySeed=input$ipSeed)
 
                     elapsedTime=toc()
@@ -248,7 +266,7 @@ server <- function(input, output, session) {
                     
                     print("Done")
                     
-                    tmpFish<-st_intersects(st_buffer(myFish, 1), myCasts)
+                    tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
                     tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
                     return(tblInteractionTable)
                 })

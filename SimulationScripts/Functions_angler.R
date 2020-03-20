@@ -20,7 +20,7 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
   numberOfParties=round(numberAnglers/meanPartySize)
   parties<-data.frame(partyId=1:numberOfParties) 
   
-  #do next step in one call to rnorm for efficiency...not in mutate statement
+  #do next step in one call to rnorm or rpois for efficiency...not in mutate statement
   parties$numberInParty=round(rpois(nrow(parties), meanPartySize),0)
   
   #eliminate anything under zero and over maxPartySize

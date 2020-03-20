@@ -1,4 +1,3 @@
-
 #creates base dataframe to hold all casts
 casts_create_df<-function(myAnglers, numberCastsPerAngler=100){
   myAnglers <- myAnglers %>%
@@ -20,18 +19,19 @@ casts_create_random_cast_params_direction<-function(){
   return(myDirection)
 }
 
-casts_create_random_cast_params_distance<-function(){
-  myDistance<-rnorm(1, mean=10, sd=1) + 0.5
+casts_create_random_cast_params_distance<-function(meanCastDistance, sdCastDistance){
+  myDistance<-rnorm(1, mean=meanCastDistance, sd=sdCastDistance) 
   return(myDistance)
 }
 
-cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, mySeed){
-
+cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, meanCastDistance,
+                                        sdCastDistance, mySeed){
   #set seed
   set.seed(round(mySeed*0.2175/0.57734,0))
 
   myCasts_coords$dir<-apply(myCasts_coords,1,function(x) casts_create_random_cast_params_direction())
-  myCasts_coords$dist<-apply(myCasts_coords,1,function(x) casts_create_random_cast_params_distance())
+  myCasts_coords$dist<-apply(myCasts_coords,1,function(x) casts_create_random_cast_params_distance(meanCastDistance=meanCastDistance,
+                                                                                                   sdCastDistance=sdCastDistance))
   
   myCasts_coords<-myCasts_coords %>%
      mutate(splash_X= (dist * cos(dir))+cast_X,
@@ -50,7 +50,8 @@ cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, mySeed){
     print("Running Another Round Of Casts...")
     
     myCasts_coords$dir[myCasts_coords$valid==FALSE]<-apply(myCasts_coords[myCasts_coords$valid==FALSE,],1,function(x) casts_create_random_cast_params_direction())
-    myCasts_coords$dist[myCasts_coords$valid==FALSE]<-apply(myCasts_coords[myCasts_coords$valid==FALSE,],1,function(x) casts_create_random_cast_params_distance())
+    myCasts_coords$dist[myCasts_coords$valid==FALSE]<-apply(myCasts_coords[myCasts_coords$valid==FALSE,],1,function(x) casts_create_random_cast_params_distance(meanCastDistance=meanCastDistance,
+                                                                                                                                                                sdCastDistance=sdCastDistance))
 
     myCasts_coords[myCasts_coords$valid==FALSE,]<-myCasts_coords[myCasts_coords$valid==FALSE,] %>%
       mutate(splash_X= (dist * cos(dir))+cast_X,
@@ -82,12 +83,14 @@ create_casts_poly<-function(myCasts_coords){
   return(myCasts_coords)
   
 }
-
 casts_place<-function(lakeGeom,
                       myAnglers, 
                       numberCastsPerAngler,
+                      meanCastDistance,
+                      sdCastDistance,
                       mySeed){
-  
+
+
   myCasts<-casts_create_df(myAnglers, numberCastsPerAngler)
 
   #myCasts<-casts_create_angler_movement()
@@ -96,9 +99,13 @@ casts_place<-function(lakeGeom,
 
   myCasts_coords<-cast_create_splashdown_coords(lakeGeom,
                                                 myCasts_coords,
+                                                meanCastDistance=meanCastDistance,
+                                                sdCastDistance=sdCastDistance,
                                                 mySeed)
 
   myCasts_lines<-create_casts_poly(myCasts_coords)
 
   return(myCasts_lines)
 }
+
+

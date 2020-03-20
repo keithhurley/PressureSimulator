@@ -33,7 +33,7 @@ myAnglers<-anglers_place(lakeGeom=lake,
                          anglerBankDistribution = "Clustered By Party",
                          anglerBoatPartyRadius = 2.5,
                          anglerBankPartyRadius = 3,
-                         totalAnglers = 100,
+                         totalAnglers = 1000,
                          meanPartySizeBoat=1.8,
                          maxPartySizeBoat=5,
                          meanPartySizeBank=2.4,
@@ -43,21 +43,27 @@ myAnglers<-anglers_place(lakeGeom=lake,
                          mySeed=12345)
 tic()
 ggplot() +
-  geom_sf(data=lakes_round_base, fill="lightskyblue") +
-  geom_sf(data=st_buffer(myAnglers, 35.89), color="red") +
+  geom_sf(data=lake, fill="lightskyblue") +
+  #geom_sf(data=st_buffer(myAnglers, 20), fill="red", alpha=0.25) +
   geom_point(data=myAnglers %>% st_coordinates() %>% data.frame(), aes(x=X, y=Y),  color="black", size=0.5) +
   #geom_sf(data=myFish, color="black", size=1.5) +
   labs(title="Anglers")
 toc()
 
+
 myCasts<-casts_place(lakeGeom=lake,
                      myAnglers, 
-                     numberCastsPerAngler=20,
+                     numberCastsPerAngler=60,
+                     meanCastDistance=10,
+                     sdCastDistance=3,
                      mySeed=12345)
 
- # ggplot() +
- #  geom_sf(data=myCasts_lines[3001:3060,]) #+
- #  #geom_sf(data=myFish, color="black", size=1.5)
+
+
+ ggplot() +
+   geom_sf(data=lake, fill="navy") +
+  geom_sf(data=myCasts) +
+  geom_sf(data=myFish, color="red", size=1.5)
 
 #process spatial data for interactions
 tmpFish<-st_intersects(st_buffer(myFish, 1), myCasts)
