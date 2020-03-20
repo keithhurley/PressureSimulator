@@ -188,7 +188,7 @@ server <- function(input, output, session) {
                  })
     
     observeEvent(input$doSims,
-                 {
+                 { 
                    updateTabsetPanel(session, "PageNav",
                                       selected = "Results")  
                  })
@@ -215,13 +215,13 @@ server <- function(input, output, session) {
                         mySeed=input$ipSeed)
                 
                     showNotification("Placing Anglers", duration=10, closeButton=FALSE)
-
+                    suppressWarnings(
                     myAnglers<-anglers_place(lakeGeom=myValues$lake,
                                              anglerBoatDistribution = input$ipAnglerDistributionType,
                                              anglerBankDistribution = input$ipAnglerDistributionType,
                                              anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
                                              anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
-                                             totalAnglers = 1000,
+                                             totalAnglers = 100,
                                              meanPartySizeBoat=input$ipMeanPartySizeBoat,
                                              maxPartySizeBoat=input$ipMaxPartySizeBoat,
                                              meanPartySizeBank=input$ipMeanPartySizeBank,
@@ -229,9 +229,9 @@ server <- function(input, output, session) {
                                              boatShorelineBuffer= input$ipBoatShorelineBuffer,
                                              percentBank = input$ipPercentBank,
                                              mySeed=input$ipSeed)
-                    
+                    )
                     print(ggplot() +
-                       geom_sf(data=lake, fill="lightskyblue") +
+                       geom_sf(data=myValues$lake, fill="lightskyblue") +
                        geom_sf(data=myAnglers, color="red", size=2) +
                        #geom_sf(data=myFish, color="black", size=1.5) +
                        labs(title="Anglers"))
@@ -250,14 +250,11 @@ server <- function(input, output, session) {
                     
                     tmpFish<-st_intersects(st_buffer(myFish, 1), myCasts)
                     tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
-                    print(tblInteractionTable)
-                    #outputTableInteractions=table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
                     return(tblInteractionTable)
                 })
     
     output$TableInteractions=renderTable({SimsResult()})
-    #output$mySeed=reactive(input$ipSeed)
-    #output$myNumberFish=reactive(input$ipNumberFish)
+
 }
 
 # Run the application 

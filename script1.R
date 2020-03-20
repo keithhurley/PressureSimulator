@@ -16,24 +16,31 @@ myTheme<-theme_minimal() +
 
 old<-theme_set(myTheme)
 
-load(file="./data/lakes/round")
+load(file="./data/lakes/round_1.rData")
 
-myFish<-fish_place_random(lakeGeom=lakes_round_base, numberFish=100)
+myFish<-fish_place_random(lakeGeom=lake,
+                          numberFish=100,
+                          fishShorelineBuffer = 0.5,
+                          mySeed=12345)
 
 # ggplot() +
 #   geom_sf(data=lakes_round_base, fill="lightskyblue") +
 #   geom_sf(data=myFish) +
 #   labs(title="Fish") 
 
-myAnglers<-anglers_place(lakeGeom=lakes_round_base,
-                         anglerBankDistribution = "Random",
-                         anglerBoatDistribution = "Random",
-                         totalAnglers = 100000,
+myAnglers<-anglers_place(lakeGeom=lake,
+                         anglerBoatDistribution = "Clustered By Party",
+                         anglerBankDistribution = "Clustered By Party",
+                         anglerBoatPartyRadius = 2.5,
+                         anglerBankPartyRadius = 3,
+                         totalAnglers = 100,
+                         meanPartySizeBoat=1.8,
+                         maxPartySizeBoat=5,
+                         meanPartySizeBank=2.4,
+                         maxPartySizeBank=6,
+                         boatShorelineBuffer= 5,
                          percentBank = 50,
-                         meanPartySizeBank=1,
-                         meanPartySizeBoat=1,
-                         maxPartySizeBoat=4,
-                         mySeed=myRandomSeed)
+                         mySeed=12345)
 tic()
 ggplot() +
   geom_sf(data=lakes_round_base, fill="lightskyblue") +
@@ -43,7 +50,10 @@ ggplot() +
   labs(title="Anglers")
 toc()
 
-myCasts<-casts_place(myAnglers, numberCastsPerAngler=20)
+myCasts<-casts_place(lakeGeom=lake,
+                     myAnglers, 
+                     numberCastsPerAngler=20,
+                     mySeed=12345)
 
  # ggplot() +
  #  geom_sf(data=myCasts_lines[3001:3060,]) #+

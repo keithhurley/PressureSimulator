@@ -130,6 +130,7 @@ anglers_place_bank<-function(lakeGeom,
   #MUST PARELLALIZE this for st_buffer
   cl<-makeCluster(2)
   registerDoParallel(cl)  
+  suppressMessages({
   myAnglers2<-foreach(i=1:nrow(myAnglers), .combine="rbind") %do% {
     require(dplyr)
     require(sf)
@@ -151,10 +152,10 @@ anglers_place_bank<-function(lakeGeom,
     
     #filter out extras for when the geography buffering of angler 1 creates extras
     myTmp<-myTmp[1:myAnglers$numberInParty[i],]
-
     }
     return(myTmp)
   }
+  })
   stopCluster(cl)
   
   myAnglers2<-myAnglers2 %>%
@@ -179,17 +180,16 @@ anglers_place_bank<-function(lakeGeom,
   
 }
   
-  print("Ablut to return")
   return(myAnglers)
 }
 
 
 anglers_place_boat<-function(lakeGeom, 
-                             numberAnglers=1000,
-                             meanPartySizeBoat=2,
-                             maxPartySizeBoat=4,
-                             anglerBoatDistribution="Random",
-                             anglerBoatPartyRadius=NA,
+                             numberAnglers,
+                             meanPartySizeBoat,
+                             maxPartySizeBoat,
+                             anglerBoatDistribution,
+                             anglerBoatPartyRadius,
                              anglerBoatRestrictions=NA, 
                              anglerBoatProbs=NA,
                              boatShorelineBuffer,
@@ -261,9 +261,9 @@ anglers_place_boat<-function(lakeGeom,
   myAnglers2[myAnglers2$partyAnglerId==1,]$geometry<-myAnglers$geometry
                  
   # ggplot() +
-  #   geom_sf(data=lakeGeom)+ 
-  #   geom_sf(data=st_buffer(myAnglers2 %>% filter(partyAnglerId==1),5), fill="red", alpha=.5, color="red") +
-  #   geom_sf(data=myAnglers2, size=1) 
+  #   geom_sf(data=lakeGeom)+
+  #   geom_sf(data=st_buffer(myAnglers2 %>% filter(partyAnglerId==1),2.5), fill="red", alpha=.5, color="red") +
+  #   geom_sf(data=myAnglers2, size=1)
                 
   myAnglers<-myAnglers2
   myAnglers$anglerType="Boat"
@@ -309,7 +309,7 @@ anglers_place<-function(lakeGeom,
                         anglerBankLureProb=100,
                         anglerBoatLureProb=100,
                         mySeed){
-  print(anglerBankPartyRadius)
+
   #calculate remaining precentages
   percentBoat<-(100-percentBank)
 
@@ -334,7 +334,7 @@ anglers_place<-function(lakeGeom,
   
   #create dataset of boat anglers with starting position
   if(percentBoat>0){
-    myBoatAnglers<-anglers_place_boat(lakeGeom,
+    myBoatAnglers<-anglers_place_boat(lakeGeom=lakeGeom,
                                       numberAnglers=totalAnglers*(percentBoat/100),
                                       meanPartySizeBoat=meanPartySizeBoat,
                                       maxPartySizeBoat=maxPartySizeBoat,
@@ -342,6 +342,7 @@ anglers_place<-function(lakeGeom,
                                       anglerBoatPartyRadius = anglerBoatPartyRadius,
                                       anglerBoatRestrictions = anglerBoatRestrictions,
                                       anglerBoatProbs=anglerBoatProbs,
+                                      boatShorelineBuffer=boatShorelineBuffer,
                                       mySeed=mySeed)
     #assign angler method types
     myBoatAnglers<-anglers_assign_method(myBoatAnglers, 
