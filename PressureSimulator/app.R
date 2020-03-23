@@ -15,16 +15,25 @@ ui <- fluidPage(
                 tabPanel("Settings",
                          navlistPanel(
                              tabPanel("Waterbody",
+                                      tags$table(
+                                          tags$tr(
+                                              tags$td(
+                                                  tags$b("Lake Name: "),
+                                                  textOutput("opLakeName")
+                                                  ),
+                                              tags$td(style="width:25px;"),
+                                              tags$td(
+                                                  tags$b("Acres: "),
+                                                  textOutput("opLakeAcres")
+                                                  )
+                                              ),
                                       selectInput('ipLakeGeom',
                                                   'Select A Lake',
-                                                  choice = gsub("\\.rData$", "", list.files('../data/lakes/'))
+                                                  choice = list.dirs(path='../data/lakes/',recursive=FALSE, full.names = FALSE)
                                                   ),
-                                      tags$b("Lake Name: "),
-                                      textOutput("opLakeName"),
-                                      tags$br(),
-                                      tags$b("Acres: "),
-                                      textOutput("opLakeAcres")
-                             ),
+                                      uiOutput("restrictionSelection")
+                                      )
+                                      ),
                              tabPanel("Anglers",
                                       selectInput("ipAnglerDistributionType",
                                                   "Distribution Type",
@@ -49,55 +58,54 @@ ui <- fluidPage(
                                                                             value=5)
                                                                 )
                                                        ),
-                                      tags$span(style="font-weight:bold",
-                                                "Boat:"),
-                                      tags$div(style="background: gainsboro; padding:10px",
-                                      sliderInput("ipPercentBoat",
-                                                  "Percent Boat Anglers",
-                                                  min=0,
-                                                  max=100,
-                                                  step=5,
-                                                  value=50),
-                                      sliderInput("ipMeanPartySizeBoat", 
-                                                  "Mean Party Size - Boat",
-                                                  min = 1,
-                                                  max = 10,
-                                                  step = 0.1,
-                                                  value = 1.9),
-                                      sliderInput("ipMaxPartySizeBoat", 
-                                                  "Mean Party Size - Boat",
-                                                  min = 1,
-                                                  max = 10,
-                                                  step = 1,
-                                                  value = 4),
-                                      sliderInput("ipBoatShorelineBuffer", 
-                                                  "Boating Shoreline Buffer: ",
-                                                  min = 0.5,
-                                                  max = 30,
-                                                  step = 0.5,
-                                                  value = 10)),
-                                      tags$br(),
-                                      tags$span(style="font-weight:bold",
-                                                "Bank:"),
-                                      tags$div(style="background: gainsboro; padding:10px",
-                                               sliderInput("ipMeanPartySizeBank", 
-                                                  "Mean Party Size - Bank",
-                                                  min = 1,
-                                                  max = 10,
-                                                  step = 0.1,
-                                                  value = 2.3),
-                                      sliderInput("ipMaxPartySizeBank", 
-                                                  "Mean Party Size - Bank",
-                                                  min = 1,
-                                                  max = 10,
-                                                  step = 1,
-                                                  value = 4),
-                                      sliderInput("ipPercentBank",
-                                                  "Percent Bank Anglers",
-                                                  min=0,
-                                                  max=100,
-                                                  step=5,
-                                                  value=50))),
+                                      tabsetPanel(type="tabs",
+                                                  tabPanel("Boat Anglers: ",
+                                                        tags$div(style="background: gainsboro; padding:10px",
+                                                            sliderInput("ipPercentBoat",
+                                                            "Percent Boat Anglers",
+                                                            min=0,
+                                                            max=100,
+                                                            step=5,
+                                                            value=50),
+                                                        sliderInput("ipMeanPartySizeBoat", 
+                                                            "Mean Party Size - Boat",
+                                                            min = 1,
+                                                            max = 10,
+                                                            step = 0.1,
+                                                            value = 1.9),
+                                                        sliderInput("ipMaxPartySizeBoat", 
+                                                            "Mean Party Size - Boat",
+                                                            min = 1,
+                                                            max = 10,
+                                                            step = 1,
+                                                            value = 4),
+                                                        sliderInput("ipBoatShorelineBuffer", 
+                                                            "Boating Shoreline Buffer: ",
+                                                            min = 0.5,
+                                                            max = 30,
+                                                            step = 0.5,
+                                                            value = 10)),
+                                                        tags$br()),
+                                                  tabPanel("Bank Anglers:  ",
+                                                            tags$div(style="background: gainsboro; padding:10px",
+                                                            sliderInput("ipMeanPartySizeBank", 
+                                                                "Mean Party Size - Bank",
+                                                                min = 1,
+                                                                max = 10,
+                                                                step = 0.1,
+                                                                value = 2.3),
+                                                            sliderInput("ipMaxPartySizeBank", 
+                                                                "Mean Party Size - Bank",
+                                                                min = 1,
+                                                                max = 10,
+                                                                step = 1,
+                                                                value = 4),
+                                                            sliderInput("ipPercentBank",
+                                                                "Percent Bank Anglers",
+                                                                min=0,
+                                                                max=100,
+                                                                step=5,
+                                                                value=50))))),
                              tabPanel("Fish",
                                       sliderInput("ipNumberFish", 
                                                   "Number of fish:",
@@ -169,7 +177,8 @@ ui <- fluidPage(
                          #plotOutput("distPlot")
                          ),
                 tabPanel("Outputs")
-               )               )
+               )               
+)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -181,11 +190,17 @@ server <- function(input, output, session) {
     observeEvent(input$ipLakeGeom,
                  {
                      #load(file="./data/lakes/round_1.rData")
-                     load(file=paste("../data/lakes/", input$ipLakeGeom, ".rData", sep=""))
+                     load(file=paste("../data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""))
                      myValues$lake=lake
                      myValues$lakeName=lake$name[1]
                      myValues$lakeAcres=as.numeric(round(st_area(lake)/4046.86,1))
                  })
+    
+    output$restrictionSelection <- renderUI({
+        selectInput("ipShoreRestrictions", 
+                    "Select A Shoreline Restriction: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("../data/lakes/",input$ipLakeGeom,"/restrictions/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+                    })
     
     output$opLakeName=renderText(myValues$lakeName)
     

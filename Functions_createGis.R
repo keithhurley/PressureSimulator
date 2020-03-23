@@ -65,3 +65,34 @@ data.frame(linestrings)
 st_combine(linestrings)
 tt<-bind_rows(data.frame(linestrings))
 sf::st_as_sf(data.table::rbindlist(linestrings))
+
+
+
+
+# make restriction zones --------------------------------------------------
+createShorelineRestrictions<-function(myLakes=c("round_1", "round_5", "round_10", "round_50", "round_100", "round_1000"),
+                                      levels=c(10,20,30,40,50,60,70,80,90)){
+  foreach(l=1:length(myLakes)) %do% {
+  load(file=paste("./data/lakes/", myLakes[l], "/lake.rData", sep=""))
+  myShoreline<-st_cast(lake, "LINESTRING")
+  myBreakPoints<-st_line_sample(st_cast(lake, "LINESTRING"), n=10, type="regular")
+  buf <- st_buffer(myBreakPoints,0.00000001)
+  parts = st_collection_extract(lwgeom::st_split(myShoreline, buf),"LINESTRING")
+  myParts=c(1,2,20,21)
+  myLakeName<-myLakes[l]
+  lake_restrictions_shore<-st_combine(parts[myParts,])
+  save(lake_restrictions_shore, file=paste("./data/lakes/", myLakeName,"/restrictions/shore/", "10", "percent.rData", sep=""))
+  myLevel=0
+  foreach(i=seq(3,19,2)) %do% {
+    myParts=c(myParts, i, i+1)
+    lake_restrictions_shore<-st_combine(parts[myParts,])
+    myLevel=myLevel+1
+    save(lake_restrictions_shore, file=paste("./data/lakes/", myLakeName, "/restrictions/shore/", levels[myLevel], "percent.rData", sep=""))
+    }
+  }
+}
+
+createShorelineRestrictions()
+
+ggplot() + geom_sf(data=lake) + geom_sf(data=st_sample(st_combine(parts[2:3,]), 3), size=3, color="red") + geom_sf(data=st_combine(parts[2:3,]), color="yellow")
+
