@@ -4,6 +4,7 @@ library(tidyverse)
 source("../SimulationScripts/Functions_fish.R")
 source("../SimulationScripts/Functions_angler.R")
 source("../SimulationScripts/Functions_casts.R")
+source("../SimulationScripts/Functions_pressure.R")
 source("../SimulationScripts/Functions_themes.R")
 library(tictoc)
 
@@ -68,13 +69,13 @@ ui <- fluidPage(
                                                             step=5,
                                                             value=50),
                                                         sliderInput("ipMeanPartySizeBoat", 
-                                                            "Mean Party Size - Boat",
+                                                            "Mean Party Size",
                                                             min = 1,
                                                             max = 10,
                                                             step = 0.1,
                                                             value = 1.9),
                                                         sliderInput("ipMaxPartySizeBoat", 
-                                                            "Mean Party Size - Boat",
+                                                            "Max Party Size",
                                                             min = 1,
                                                             max = 10,
                                                             step = 1,
@@ -88,24 +89,25 @@ ui <- fluidPage(
                                                         tags$br()),
                                                   tabPanel("Bank Anglers:  ",
                                                             tags$div(style="background: gainsboro; padding:10px",
-                                                            sliderInput("ipMeanPartySizeBank", 
-                                                                "Mean Party Size - Bank",
-                                                                min = 1,
-                                                                max = 10,
-                                                                step = 0.1,
-                                                                value = 2.3),
-                                                            sliderInput("ipMaxPartySizeBank", 
-                                                                "Mean Party Size - Bank",
-                                                                min = 1,
-                                                                max = 10,
-                                                                step = 1,
-                                                                value = 4),
                                                             sliderInput("ipPercentBank",
                                                                 "Percent Bank Anglers",
                                                                 min=0,
                                                                 max=100,
                                                                 step=5,
-                                                                value=50))))),
+                                                                value=50),
+                                                            sliderInput("ipMeanPartySizeBank", 
+                                                                "Mean Party Size",
+                                                                min = 1,
+                                                                max = 10,
+                                                                step = 0.1,
+                                                                value = 2.3),
+                                                            sliderInput("ipMaxPartySizeBank", 
+                                                                "Max Party Size",
+                                                                min = 1,
+                                                                max = 10,
+                                                                step = 1,
+                                                                value = 4)
+                                                            )))),
                              tabPanel("Fish",
                                       sliderInput("ipNumberFish", 
                                                   "Number of fish:",
@@ -132,14 +134,26 @@ ui <- fluidPage(
                                                   max = 1000,
                                                   step = 5,
                                                   value = 100),
-                                      sliderInput("ipMeanTripLength", 
-                                                  "Mean Trip Length",
+                                      sliderInput("ipTripLengthMean", 
+                                                  "Trip Length Mean",
                                                   min = 0.5,
                                                   max = 10,
                                                   step = 0.5,
                                                   value = 3),
-                                      sliderInput("ipCastsPerHour", 
-                                                  "Casts Per Hour",
+                                      sliderInput("ipTripLengthSd", 
+                                                  "Trip Length Standard Deviation",
+                                                  min = 0.5,
+                                                  max = 10,
+                                                  step = 0.5,
+                                                  value = 1),
+                                      sliderInput("ipCastsPerHourMean", 
+                                                  "Casts Per Hour Mean",
+                                                  min = 4,
+                                                  max = 120,
+                                                  step = 1,
+                                                  value = 60),
+                                      sliderInput("ipCastsPerHourSd", 
+                                                  "Casts Per Hour Standard Deviation",
                                                   min = 4,
                                                   max = 120,
                                                   step = 1,
@@ -172,7 +186,13 @@ ui <- fluidPage(
                              )
                          ),
                 tabPanel("Results",
-                         tableOutput('TableInteractions')),
+                         tags$div(style="max-width:700px;",
+                                  tags$div(style="float:left; width:200px;",
+                                           tableOutput('TableInteractions')),
+                                  tags$div(style="float:left; width:500px; padding-left:50px;",
+                                           plotOutput('PlotInteractions'))
+                                )
+                         ),
                 tabPanel("Plots"#,
                          #plotOutput("distPlot")
                          ),
@@ -189,7 +209,7 @@ server <- function(input, output, session) {
     #setup lake name and acres display
     observeEvent(input$ipLakeGeom,
                  {
-                     #load(file="./data/lakes/round_1.rData")
+                     #load(file="./data/lakes/round_1/lake.rData")
                      load(file=paste("../data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""))
                      myValues$lake=lake
                      myValues$lakeName=lake$name[1]
@@ -213,6 +233,7 @@ server <- function(input, output, session) {
                                        "ipPercentBank", 
                                        value=100-input$ipPercentBoat)
                  })
+    
     observeEvent(input$ipPercentBank,
                  {
                      updateSliderInput(session,
@@ -236,6 +257,13 @@ server <- function(input, output, session) {
                     
                     myRandomSeed=input$ipSeed
                     
+                    myValues$myPressureObject<-createPressureObject(myValues$lakeAcres,
+                                                           input$ipHoursPerAcre,
+                                                           input$ipTripLengthMean,
+                                                           input$ipTripLengthSd,
+                                                           input$ipCastsPerHourMean,
+                                                           input$ipCastsPerHourSd)
+                    print(myValues$myPressureObject)
                     showNotification("Loading Lake Geometries", duration=10, closeButton=FALSE)
                     
                     showNotification("Placing Fish", duration=10, closeButton=FALSE)
@@ -252,7 +280,7 @@ server <- function(input, output, session) {
                                              anglerBankDistribution = input$ipAnglerDistributionType,
                                              anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
                                              anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
-                                             totalAnglers = 100,
+                                             totalAnglers = myValues$myPressureObject$myNumberAnglers,
                                              meanPartySizeBoat=input$ipMeanPartySizeBoat,
                                              maxPartySizeBoat=input$ipMaxPartySizeBoat,
                                              meanPartySizeBank=input$ipMeanPartySizeBank,
@@ -261,6 +289,9 @@ server <- function(input, output, session) {
                                              percentBank = input$ipPercentBank,
                                              mySeed=input$ipSeed)
                     )
+                    
+                    print(myAnglers)
+                    
                     print(ggplot() +
                        geom_sf(data=myValues$lake, fill="lightskyblue") +
                        geom_sf(data=myAnglers, color="red", size=2) +
@@ -282,12 +313,26 @@ server <- function(input, output, session) {
                     print("Done")
                     
                     tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
+                    
+                    myResults<-list()
                     tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
-                    return(tblInteractionTable)
+                    myResults$tblInteractionTable<-tblInteractionTable
+                    myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
+                        geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
+                    
+                    
+                    return(myResults)
                 })
     
-    output$TableInteractions=renderTable({SimsResult()})
-
+    output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})
+    output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) +
+                                           geom_bar(aes(x=as.numeric(NumberInteractions), y=Freq, fill=NumberInteractions), 
+                                                    stat="identity", size=2) +
+                                            scale_fill_viridis_d(direction=-1) +
+            scale_y_continuous(limits=c(0,40)) +
+            scale_x_continuous(limits=c(0,30))+
+                                            theme_bw() + 
+                                            theme(legend.position="none")}) 
 }
 
 # Run the application 

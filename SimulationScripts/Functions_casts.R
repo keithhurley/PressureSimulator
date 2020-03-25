@@ -1,5 +1,6 @@
 #creates base dataframe to hold all casts
 casts_create_df<-function(myAnglers, numberCastsPerAngler=100){
+  print(myAnglers)
   myAnglers <- myAnglers %>%
     left_join(expand.grid(anglerId=myAnglers$anglerId, castId=1:numberCastsPerAngler))
   return(myAnglers)
