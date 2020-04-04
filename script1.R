@@ -16,7 +16,7 @@ myTheme<-theme_minimal() +
 
 old<-theme_set(myTheme)
 
-load(file="./data/lakes/round_1.rData")
+load(file="./data/lakes/round_1/lake.rData")
 
 myFish<-fish_place_random(lakeGeom=lake,
                           numberFish=100,

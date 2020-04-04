@@ -188,6 +188,7 @@ ui <- fluidPage(
                 tabPanel("Results",
                          tags$div(style="max-width:700px;",
                                   tags$div(style="float:left; width:200px;",
+                                           textOutput('TextMeanInteractions'),
                                            tableOutput('TableInteractions')),
                                   tags$div(style="float:left; width:500px; padding-left:50px;",
                                            plotOutput('PlotInteractions'))
@@ -320,12 +321,30 @@ server <- function(input, output, session) {
                     myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
                         geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
                     
+                    #add interaction count to myFish
+                    myFish$castInteractions<-tmpFish %>% lengths
+                    table(myFish$castInteractions)
                     
+                    #create dataframe of all interactions
+                    myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
+                    myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+                    myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+                    
+                    myResults$numMeanInteractionsPerFish<-mean(myFish$castInteractions)
+                    # myResults$meanInteractions<-myInteractions %>%
+                    #     group_by(fishId) %>%
+                    #     summarize(numInteractions=n()) %>%
+                    #     ungroup() %>%
+                    #     right_join(myFish[,c("fishId")], by=c("fishId")) %>%
+                    #     mutate(numInteractions=ifelse(is.na(numInteractions),0, numInteractions)) %>%
+                    #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
+                    #     summarize(meanInteractions=mean())
+                    #     
                     return(myResults)
                 })
     
-    output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})
-    output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) +
+        output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})
+        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) +
                                            geom_bar(aes(x=as.numeric(NumberInteractions), y=Freq, fill=NumberInteractions), 
                                                     stat="identity", size=2) +
                                             scale_fill_viridis_d(direction=-1) +
@@ -333,6 +352,7 @@ server <- function(input, output, session) {
             scale_x_continuous(limits=c(0,30))+
                                             theme_bw() + 
                                             theme(legend.position="none")}) 
+    output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$numMeanInteractionsPerFish, sep=""))
 }
 
 # Run the application 
