@@ -1,3 +1,4 @@
+options(stringsAsFactors=FALSE)
 library(sf)
 library(tidyverse)
 source("./SimulationScripts/Functions_fish.R")
@@ -29,11 +30,12 @@ myFish<-fish_place_random(lakeGeom=lake,
 #   labs(title="Fish") 
 
 myAnglers<-anglers_place(lakeGeom=lake,
+                         lakeName=lake$name,
                          anglerBoatDistribution = "Clustered By Party",
                          anglerBankDistribution = "Clustered By Party",
                          anglerBoatPartyRadius = 2.5,
                          anglerBankPartyRadius = 3,
-                         totalAnglers = 1000,
+                         totalAnglers = 100,
                          meanPartySizeBoat=1.8,
                          maxPartySizeBoat=5,
                          meanPartySizeBank=2.4,

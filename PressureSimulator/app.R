@@ -1,3 +1,4 @@
+options(stringsAsFactors=FALSE)
 library(shiny)
 library(sf)
 library(tidyverse)
@@ -264,7 +265,7 @@ server <- function(input, output, session) {
                                                            input$ipTripLengthSd,
                                                            input$ipCastsPerHourMean,
                                                            input$ipCastsPerHourSd)
-                    print(myValues$myPressureObject)
+
                     showNotification("Loading Lake Geometries", duration=10, closeButton=FALSE)
                     
                     showNotification("Placing Fish", duration=10, closeButton=FALSE)
@@ -273,10 +274,11 @@ server <- function(input, output, session) {
                         numberFish=input$ipNumberFish,
                         fishShorelineBuffer = input$ipFishShorelineBuffer,
                         mySeed=input$ipSeed)
-                
+
                     showNotification("Placing Anglers", duration=10, closeButton=FALSE)
                     suppressWarnings(
                     myAnglers<-anglers_place(lakeGeom=myValues$lake,
+                                             lakeName=myValues$lakeName,
                                              anglerBoatDistribution = input$ipAnglerDistributionType,
                                              anglerBankDistribution = input$ipAnglerDistributionType,
                                              anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
@@ -287,12 +289,13 @@ server <- function(input, output, session) {
                                              meanPartySizeBank=input$ipMeanPartySizeBank,
                                              maxPartySizeBank=input$ipMaxPartySizeBank,
                                              boatShorelineBuffer= input$ipBoatShorelineBuffer,
+                                             anglerBankRestrictions=input$ipShoreRestrictions,
                                              percentBank = input$ipPercentBank,
                                              mySeed=input$ipSeed)
                     )
                     
-                    print(myAnglers)
-                    
+                    # print(myAnglers)
+                    # 
                     print(ggplot() +
                        geom_sf(data=myValues$lake, fill="lightskyblue") +
                        geom_sf(data=myAnglers, color="red", size=2) +
@@ -344,15 +347,17 @@ server <- function(input, output, session) {
                 })
     
         output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})
-        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) +
-                                           geom_bar(aes(x=as.numeric(NumberInteractions), y=Freq, fill=NumberInteractions), 
-                                                    stat="identity", size=2) +
+        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) + 
+                                           geom_bar(aes(x=as.numeric(as.character(NumberInteractions)), y=Freq, fill=NumberInteractions), 
+                                                    stat="identity") +
+                labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions")+
                                             scale_fill_viridis_d(direction=-1) +
-            scale_y_continuous(limits=c(0,40)) +
-            scale_x_continuous(limits=c(0,30))+
+            scale_y_continuous(limits=c(0,max(SimsResult()$tblInteractionTable$Freq)+20)) +
+            scale_x_continuous(limits=c(-1,max(as.numeric(as.character(SimsResult()$tblInteractionTable$NumberInteractions)))))+
                                             theme_bw() + 
-                                            theme(legend.position="none")}) 
-    output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$numMeanInteractionsPerFish, sep=""))
+                                            theme(legend.position="none")
+            }) 
+        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$numMeanInteractionsPerFish, sep=""))
 }
 
 # Run the application 
