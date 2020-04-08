@@ -158,7 +158,7 @@ ui <- fluidPage(
                                                   min = 4,
                                                   max = 120,
                                                   step = 1,
-                                                  value = 60),
+                                                  value = 20),
                                       sliderInput("ipCastDistanceMean",
                                                   "Mean Cast Distance",
                                                   min=1,
@@ -294,8 +294,6 @@ server <- function(input, output, session) {
                                              mySeed=input$ipSeed)
                     )
                     
-                    # print(myAnglers)
-                    # 
                     print(ggplot() +
                        geom_sf(data=myValues$lake, fill="lightskyblue") +
                        geom_sf(data=myAnglers, color="red", size=2) +
@@ -304,17 +302,17 @@ server <- function(input, output, session) {
                     
                     showNotification("Simulating Casts", duration=10, closeButton=FALSE)
 
-                                        myCasts<-casts_place(lakeGeom=myValues$lake,
+                    myCasts<-casts_place(lakeGeom=myValues$lake,
                                          myAnglers, 
                                          numberCastsPerAngler=20,
                                          meanCastDistance=input$ipCastDistanceMean,
                                          sdCastDistance=input$ipCastDistanceSd,
+                                         meanCastsPerHour=input$ipCastPerHourMean,
+                                         sdCastsPerHour=input$ipCastPerHourSd,
                                          mySeed=input$ipSeed)
 
                     elapsedTime=toc()
                     showNotification(paste("Simulations Complete (Elapsed Time = ", round((elapsedTime$toc-elapsedTime$tic)/60,2), " Minutes)", sep=""), duration = NULL)
-                    
-                    print("Done")
                     
                     tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
                     

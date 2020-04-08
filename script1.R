@@ -43,14 +43,14 @@ myAnglers<-anglers_place(lakeGeom=lake,
                          boatShorelineBuffer= 5,
                          percentBank = 50,
                          mySeed=12345)
-tic()
-ggplot() +
-  geom_sf(data=lake, fill="lightskyblue") +
-  #geom_sf(data=st_buffer(myAnglers, 20), fill="red", alpha=0.25) +
-  geom_point(data=myAnglers %>% st_coordinates() %>% data.frame(), aes(x=X, y=Y),  color="black", size=0.5) +
-  #geom_sf(data=myFish, color="black", size=1.5) +
-  labs(title="Anglers")
-toc()
+# tic()
+# ggplot() +
+#   geom_sf(data=lake, fill="lightskyblue") +
+#   #geom_sf(data=st_buffer(myAnglers, 20), fill="red", alpha=0.25) +
+#   geom_point(data=myAnglers %>% st_coordinates() %>% data.frame(), aes(x=X, y=Y),  color="black", size=0.5) +
+#   #geom_sf(data=myFish, color="black", size=1.5) +
+#   labs(title="Anglers")
+# toc()
 
 
 myCasts<-casts_place(lakeGeom=lake,
@@ -58,6 +58,8 @@ myCasts<-casts_place(lakeGeom=lake,
                      numberCastsPerAngler=60,
                      meanCastDistance=10,
                      sdCastDistance=3,
+                     meanCastsPerHour=40,
+                     sdCastsPerHour=15,
                      mySeed=12345)
 
 
