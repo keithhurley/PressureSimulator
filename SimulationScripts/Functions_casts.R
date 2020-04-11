@@ -54,7 +54,7 @@ cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, meanCastDistan
   #test for validity...i.e. cast splashdown is in lake
   myCasts_temp<-myCasts_coords %>%
     st_as_sf(coords = c("splash_X", "splash_Y"), 
-             crs = 5514) 
+             crs = 6343) 
   myCasts_coords$valid<-as.vector(as.matrix(st_intersects(myCasts_temp, lakeGeom)))
 
   
@@ -74,7 +74,7 @@ cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, meanCastDistan
     #test for validity...i.e. cast splashdown is in lake
     myCasts_temp<-myCasts_coords[myCasts_coords$valid==FALSE,] %>%
       st_as_sf(coords = c("splash_X", "splash_Y"), 
-               crs = 5514) 
+               crs = 6343) 
     myCasts_coords$valid[myCasts_coords$valid==FALSE]<-as.vector(as.matrix(st_intersects(myCasts_temp, lakeGeom)))
     print(sum(myCasts_coords$valid==FALSE))
     }
@@ -93,7 +93,7 @@ create_casts_poly<-function(myCasts_coords){
     lapply(t, FUN=st_linestring) 
   myCasts_coords<-cbind(myCasts_coords,st_as_sfc(t))
   myCasts_coords<-st_as_sf(myCasts_coords, 
-                           crs = 5514) 
+                           crs = 6343) 
   return(myCasts_coords)
   
 }

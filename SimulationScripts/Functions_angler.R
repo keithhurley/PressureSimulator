@@ -101,10 +101,10 @@ anglers_place_bank<-function(lakeGeom,
     myAnglers<-lakeGeom_line %>% 
       st_line_sample(n=numberAnglers, type="random")
     myAnglers<-myAnglers %>% st_cast("POINT")
-    myAnglers<-st_set_crs(myAnglers, 5514)
+    myAnglers<-st_set_crs(myAnglers, 6343)
     myAnglers<-st_cast(myAnglers) %>%
       as.data.frame() %>%
-      st_as_sf(crs = 5514) %>%
+      st_as_sf(crs = 6343) %>%
       rownames_to_column("partyId")
     myAnglers$anglerType="Bank"
   }
@@ -123,10 +123,10 @@ anglers_place_bank<-function(lakeGeom,
   
   myAnglers<-myAnglers %>% 
     st_cast("POINT") %>%
-    st_set_crs(5514) %>% 
+    st_set_crs(6343) %>% 
     st_cast() %>%
     as.data.frame() %>%
-    st_as_sf(crs = 5514) %>%
+    st_as_sf(crs = 6343) %>%
     rownames_to_column("partyId") %>%
     mutate(partyId=as.integer(partyId)) %>%
     mutate(anglerType="Bank") %>%
@@ -146,17 +146,17 @@ cl<-makeCluster(2)
     if(myAnglers$numberInParty[i]==1){
       myTmp<-myAnglers$geometry[i] %>%
         as.data.frame() %>%
-        st_as_sf(crs=5514)
+        st_as_sf(crs=6343)
     } else {
       myTmp<-st_buffer(myAnglers[i,], anglerBankPartyRadius * (myAnglers$numberInParty[i]-1))  
       myTmp<-st_intersection(lakeGeom_line, myTmp)
       myTmp<-st_cast(myTmp, "LINESTRING") %>% 
         st_line_sample(n=myAnglers$numberInParty[i], type="random") %>%
         st_cast("POINT") %>%
-        st_set_crs(5514) %>% 
+        st_set_crs(6343) %>% 
         st_cast() %>%
         as.data.frame() %>%
-        st_as_sf(crs = 5514)
+        st_as_sf(crs = 6343)
     
       #filter out extras for when the geography buffering of angler 1 creates extras
       myTmp<-myTmp[1:myAnglers$numberInParty[i],]
@@ -211,7 +211,7 @@ anglers_place_boat<-function(lakeGeom,
   if (anglerBoatDistribution=="Random") {
     myAnglers<-st_sample(st_buffer(lakeGeom, (-1*boatShorelineBuffer)), size=numberAnglers) %>%
       as.data.frame() %>%
-      st_as_sf(crs = 5514) %>%
+      st_as_sf(crs = 6343) %>%
       rownames_to_column("partyId")
     myAnglers$anglerType="Boat"
   }
@@ -229,7 +229,7 @@ anglers_place_boat<-function(lakeGeom,
     myAnglers<-st_buffer(lakeGeom, (-1*boatShorelineBuffer)) %>%
       st_sample(size=nrow(partyList)) %>%
       as.data.frame() %>%
-      st_as_sf(crs = 5514) %>%
+      st_as_sf(crs = 6343) %>%
       rownames_to_column("partyId") %>%
       mutate(partyId=as.integer(partyId)) %>%
       mutate(anglerType="Boat") %>%

@@ -8,7 +8,7 @@ fish_place_random<-function(lakeGeom, numberFish, fishDistribution="random", fis
   if (fishDistribution=="random") {
     d<-st_sample(st_buffer(lakeGeom, (-1 * fishShorelineBuffer)), size=numberFish) %>%
       as.data.frame() %>%
-      st_as_sf(crs = 5514) %>% 
+      st_as_sf(crs = 6343) %>% 
       mutate(fishId=row_number()) 
   }
   
