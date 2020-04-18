@@ -10,9 +10,6 @@ casts_create_df<-function(myAnglers,meanCastsPerHour, sdCastsPerHour){
     ungroup()
     
   
-  # myAnglers <- myAnglers %>%
-  #   left_join(expand.grid(anglerId=myAnglers$anglerId, castId=1:numberCastsPerAngler))
-  
   myAnglers <- myAnglers %>%
     left_join(tmp_myAnglers, by="anglerId")
   
@@ -99,7 +96,6 @@ create_casts_poly<-function(myCasts_coords){
 }
 casts_place<-function(lakeGeom,
                       myAnglers, 
-                      numberCastsPerAngler,
                       meanCastDistance,
                       sdCastDistance,
                       meanCastsPerHour,

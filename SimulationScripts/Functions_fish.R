@@ -1,5 +1,3 @@
-require(sf)
-
 fish_place_random<-function(lakeGeom, numberFish, fishDistribution="random", fishShorelineBuffer, lakeRestrictions=NA, lakeFishProbs=NA, mySeed){
 
   #set seed

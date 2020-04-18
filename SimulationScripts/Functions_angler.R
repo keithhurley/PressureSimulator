@@ -1,8 +1,3 @@
-require(sf)
-require(tidyverse)
-require(tictoc)
-require(foreach)
-library(doParallel)
 
 
 #angler distributions:
