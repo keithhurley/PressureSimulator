@@ -216,6 +216,7 @@ server <- function(input, output, session) {
                      myValues$lake=lake
                      myValues$lakeName=lake$name[1]
                      myValues$lakeAcres=as.numeric(round(st_area(lake)/4046.86,1))
+                     rm(lake)
                  })
     
     output$restrictionSelection <- renderUI({
@@ -252,96 +253,122 @@ server <- function(input, output, session) {
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
-                    #RUN SIMULATION HERE
-                    tic()
+                    myResults<-sims_runSimulations(myLakeObject,
+                                                   myParamsObject,
+                                                   mySimsObject)
                     
-                    showNotification("Simulations Run Now", duration=10, closeButton=FALSE)
+                    #save output
+                    #include runtime
+                    #include flag if full run completed?
+                    save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
+                                                              mySimsObject$saveNameBase,
+                                                              save_create_timestamp(),
+                                                              sep=""),
+                                        myLakeObject,
+                                        myParamsObject,
+                                        mySimsObject,
+                                        myResults)
                     
-                    myRandomSeed=input$ipSeed
                     
-                    myValues$myPressureObject<-createPressureObject(myValues$lakeAcres,
-                                                           input$ipHoursPerAcre,
-                                                           input$ipTripLengthMean,
-                                                           input$ipTripLengthSd,
-                                                           input$ipCastsPerHourMean,
-                                                           input$ipCastsPerHourSd)
-
-                    showNotification("Loading Lake Geometries", duration=10, closeButton=FALSE)
                     
-                    showNotification("Placing Fish", duration=10, closeButton=FALSE)
-
-                    myFish<-fish_place_random(lakeGeom=myValues$lake,
-                        numberFish=input$ipNumberFish,
-                        fishShorelineBuffer = input$ipFishShorelineBuffer,
-                        mySeed=input$ipSeed)
-
-                    showNotification("Placing Anglers", duration=10, closeButton=FALSE)
-                    suppressWarnings(
-                    myAnglers<-anglers_place(lakeGeom=myValues$lake,
-                                             lakeName=myValues$lakeName,
-                                             anglerBoatDistribution = input$ipAnglerDistributionType,
-                                             anglerBankDistribution = input$ipAnglerDistributionType,
-                                             anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
-                                             anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
-                                             totalAnglers = myValues$myPressureObject$myNumberAnglers,
-                                             meanPartySizeBoat=input$ipMeanPartySizeBoat,
-                                             maxPartySizeBoat=input$ipMaxPartySizeBoat,
-                                             meanPartySizeBank=input$ipMeanPartySizeBank,
-                                             maxPartySizeBank=input$ipMaxPartySizeBank,
-                                             boatShorelineBuffer= input$ipBoatShorelineBuffer,
-                                             anglerBankRestrictions=input$ipShoreRestrictions,
-                                             percentBank = input$ipPercentBank,
-                                             mySeed=input$ipSeed)
-                    )
                     
-                    print(ggplot() +
-                       geom_sf(data=myValues$lake, fill="lightskyblue") +
-                       geom_sf(data=myAnglers, color="red", size=2) +
-                       #geom_sf(data=myFish, color="black", size=1.5) +
-                       labs(title="Anglers"))
                     
-                    showNotification("Simulating Casts", duration=10, closeButton=FALSE)
-
-                    myCasts<-casts_place(lakeGeom=myValues$lake,
-                                         myAnglers, 
-                                         numberCastsPerAngler=20,
-                                         meanCastDistance=input$ipCastDistanceMean,
-                                         sdCastDistance=input$ipCastDistanceSd,
-                                         meanCastsPerHour=input$ipCastPerHourMean,
-                                         sdCastsPerHour=input$ipCastPerHourSd,
-                                         mySeed=input$ipSeed)
-
-                    elapsedTime=toc()
-                    showNotification(paste("Simulations Complete (Elapsed Time = ", round((elapsedTime$toc-elapsedTime$tic)/60,2), " Minutes)", sep=""), duration = NULL)
                     
-                    tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
                     
-                    myResults<-list()
-                    tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
-                    myResults$tblInteractionTable<-tblInteractionTable
-                    myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
-                        geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
                     
-                    #add interaction count to myFish
-                    myFish$castInteractions<-tmpFish %>% lengths
-                    table(myFish$castInteractions)
                     
-                    #create dataframe of all interactions
-                    myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
-                    myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
-                    myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
                     
-                    myResults$numMeanInteractionsPerFish<-mean(myFish$castInteractions)
-                    # myResults$meanInteractions<-myInteractions %>%
-                    #     group_by(fishId) %>%
-                    #     summarize(numInteractions=n()) %>%
-                    #     ungroup() %>%
-                    #     right_join(myFish[,c("fishId")], by=c("fishId")) %>%
-                    #     mutate(numInteractions=ifelse(is.na(numInteractions),0, numInteractions)) %>%
-                    #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
-                    #     summarize(meanInteractions=mean())
-                    #     
-                    return(myResults)
+                    
+                    # #RUN SIMULATION HERE
+                    # tic()
+                    # 
+                    # showNotification("Simulations Run Now", duration=10, closeButton=FALSE)
+                    # 
+                    # myRandomSeed=input$ipSeed
+                    # 
+                    # myValues$myPressureObject<-createPressureObject(myValues$lakeAcres,
+                    #                                        input$ipHoursPerAcre,
+                    #                                        input$ipTripLengthMean,
+                    #                                        input$ipTripLengthSd,
+                    #                                        input$ipCastsPerHourMean,
+                    #                                        input$ipCastsPerHourSd)
+                    # 
+                    # showNotification("Loading Lake Geometries", duration=10, closeButton=FALSE)
+                    # 
+                    # showNotification("Placing Fish", duration=10, closeButton=FALSE)
+                    # 
+                    # myFish<-fish_place_random(lakeGeom=myValues$lake,
+                    #     numberFish=input$ipNumberFish,
+                    #     fishShorelineBuffer = input$ipFishShorelineBuffer,
+                    #     mySeed=input$ipSeed)
+                    # 
+                    # showNotification("Placing Anglers", duration=10, closeButton=FALSE)
+                    # suppressWarnings(
+                    # myAnglers<-anglers_place(lakeGeom=myValues$lake,
+                    #                          lakeName=myValues$lakeName,
+                    #                          anglerBoatDistribution = input$ipAnglerDistributionType,
+                    #                          anglerBankDistribution = input$ipAnglerDistributionType,
+                    #                          anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
+                    #                          anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
+                    #                          totalAnglers = myValues$myPressureObject$myNumberAnglers,
+                    #                          meanPartySizeBoat=input$ipMeanPartySizeBoat,
+                    #                          maxPartySizeBoat=input$ipMaxPartySizeBoat,
+                    #                          meanPartySizeBank=input$ipMeanPartySizeBank,
+                    #                          maxPartySizeBank=input$ipMaxPartySizeBank,
+                    #                          boatShorelineBuffer= input$ipBoatShorelineBuffer,
+                    #                          anglerBankRestrictions=input$ipShoreRestrictions,
+                    #                          percentBank = input$ipPercentBank,
+                    #                          mySeed=input$ipSeed)
+                    # )
+                    # 
+                    # print(ggplot() +
+                    #    geom_sf(data=myValues$lake, fill="lightskyblue") +
+                    #    geom_sf(data=myAnglers, color="red", size=2) +
+                    #    #geom_sf(data=myFish, color="black", size=1.5) +
+                    #    labs(title="Anglers"))
+                    # 
+                    # showNotification("Simulating Casts", duration=10, closeButton=FALSE)
+                    # 
+                    # myCasts<-casts_place(lakeGeom=myValues$lake,
+                    #                      myAnglers, 
+                    #                      numberCastsPerAngler=20,
+                    #                      meanCastDistance=input$ipCastDistanceMean,
+                    #                      sdCastDistance=input$ipCastDistanceSd,
+                    #                      meanCastsPerHour=input$ipCastPerHourMean,
+                    #                      sdCastsPerHour=input$ipCastPerHourSd,
+                    #                      mySeed=input$ipSeed)
+                    # 
+                    # elapsedTime=toc()
+                    # showNotification(paste("Simulations Complete (Elapsed Time = ", round((elapsedTime$toc-elapsedTime$tic)/60,2), " Minutes)", sep=""), duration = NULL)
+                    # 
+                    # tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
+                    # 
+                    # myResults<-list()
+                    # tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
+                    # myResults$tblInteractionTable<-tblInteractionTable
+                    # myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
+                    #     geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
+                    # 
+                    # #add interaction count to myFish
+                    # myFish$castInteractions<-tmpFish %>% lengths
+                    # table(myFish$castInteractions)
+                    # 
+                    # #create dataframe of all interactions
+                    # myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
+                    # myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+                    # myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+                    # 
+                    # myResults$numMeanInteractionsPerFish<-mean(myFish$castInteractions)
+                    # # myResults$meanInteractions<-myInteractions %>%
+                    # #     group_by(fishId) %>%
+                    # #     summarize(numInteractions=n()) %>%
+                    # #     ungroup() %>%
+                    # #     right_join(myFish[,c("fishId")], by=c("fishId")) %>%
+                    # #     mutate(numInteractions=ifelse(is.na(numInteractions),0, numInteractions)) %>%
+                    # #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
+                    # #     summarize(meanInteractions=mean())
+                    # #     
+                    # return(myResults)
                 })
     
         output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})

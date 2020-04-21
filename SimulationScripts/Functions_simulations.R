@@ -1,71 +1,74 @@
-runSimulations<-function(myLakeObject,
-                         myParamObject,
-                         numberSimulations=1){
-                         #mySimObject){
+sims_runSimulations<-function(myLakeObject,
+                         myParamsObject,
+                         mySimsObject){
   
   tic("Simulation Time =")
   
   myResults<-list()
-  myResults$myLakeObject<-myLakeObject
-  myResults$myParamObject<-myParamObject
-  #myResults$mySimObject<-mySimObject
-  
-  
-  myResults$myFish<-fish_place_random(lakeGeom=lake,
-                            numberFish=100,
-                            fishShorelineBuffer = 0.5,
-                            mySeed=12345)
-  
-  myResults$myAnglers<-anglers_place(lakeGeom=lake,
-                           lakeName=lake$name,
-                           anglerBoatDistribution = "Clustered By Party",
-                           anglerBankDistribution = "Clustered By Party",
-                           anglerBoatPartyRadius = 2.5,
-                           anglerBankPartyRadius = 3,
-                           totalAnglers = 100,
-                           meanPartySizeBoat=1.8,
-                           maxPartySizeBoat=5,
-                           meanPartySizeBank=2.4,
-                           maxPartySizeBank=6,
-                           boatShorelineBuffer= 5,
-                           percentBank = 50,
-                           mySeed=12345)
 
-  myResults$myCasts<-casts_place(lakeGeom=lake,
-                       myResults$myAnglers, 
-                       numberCastsPerAngler=60,
-                       meanCastDistance=10,
-                       sdCastDistance=3,
-                       meanCastsPerHour=40,
-                       sdCastsPerHour=15,
-                       mySeed=12345)
+  myResults$myFish<-fish_place_random(lakeGeom=myLakeObject$lakeGeom,
+                            numberFish=myParamsObject$numberFish,
+                            fishShorelineBuffer = myParamsObject$fishShorelineBuffer,
+                            mySeed=mySimsObject$seed)
   
-  
-  
+  myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
+                           lakeName=myLakeObject$lakeName,
+                           anglerBoatDistribution = myParamsObject$anglerBoatDistribution,
+                           anglerBankDistribution = myParamsObject$anglerBankDistribution,
+                           anglerBoatPartyRadius = myParamsObject$anglerBoatPartyRadius,
+                           anglerBankPartyRadius = myParamsObject$anglerBankPartyRadius,
+                           totalAnglers = myParamsObject$totalAnglers,
+                           meanPartySizeBoat=myParamsObject$meanPartySizeBoat,
+                           maxPartySizeBoat=myParamsObject$maxPartySizeBoat,
+                           meanPartySizeBank=myParamsObject$meanPartySizeBank,
+                           maxPartySizeBank=myParamsObject$maxPartySizeBank,
+                           boatShorelineBuffer= myParamsObject$boatShorelineBuffer,
+                           percentBank = myParamsObject$percentBank,
+                           mySeed=mySimsObject$seed)
+
+  myResults$myCasts<-casts_place(lakeGeom=myLakeObject$lakeGeom,
+                       myAnglers=myResults$myAnglers, 
+                       castDistanceMean=myParamsObject$castDistanceMean,
+                       castDistanceSd=myParamsObject$castDistanceSd,
+                       castsPerHourMean=myParamsObject$castsPerHourMean,
+                       castsPerHourSd=myParamsObject$castsPerHourSd,
+                       mySeed=mySimsObject$seed)
   
   #process spatial data for interactions
   tmpFish<-st_intersects(st_buffer(myResults$myFish, 1), myResults$myCasts)
-  myResults$tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
+  myResults$interactionFrequences<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
+  #add interaction count to myFish
+  myResults$myFish$numberInteractions<-tmpFish %>% lengths
+  #create dataframe of all interactions
+  myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), myResults$myFish$numberInteractions), 2]
+  myResults$myInteractions$anglerId<-myResults$myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+  myResults$myInteractions$castId<-myResults$myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
   
+  #calculate mean number ints per fish
+  myResults$interactionsPerFishMean<-mean(myResults$myFish$numberInteractions, na.rm=TRUE)
+  myResults$interactionsPerFishVar<-var(myResults$myFish$numberInteractions, na.rm=TRUE)
+  myResults$interactionsPerFishSd<-sd(myResults$myFish$numberInteractions, na.rm=TRUE)
   
-  # myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
+  #add elapsed time to results
+  timing<-toc()
+  myResults$timings$ElapsedTime=round((timing$toc-timing$tic)/60,1)
+  
+  return(myResults)
+  
+}
+
+
+
+
+
+
+
+
+ # myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
   #   geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
   # 
   
-  #add interaction count to myFish
-  myResults$myFish$castInteractions<-tmpFish %>% lengths
   #table(myFish$castInteractions)
-  
-  #create dataframe of all interactions
-  myResults$myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
-  myResults$myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
-  myResults$myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
-  
-  #calculate mean number ints per fish
-  myResults$numMeanInteractionsPerFish<-mean(myFish$castInteractions)
-  
-  
-  
   
   # myResults$meanInteractions<-myInteractions %>%
   #     group_by(fishId) %>%
@@ -76,10 +79,4 @@ runSimulations<-function(myLakeObject,
   #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
   #     summarize(meanInteractions=mean())
   #
-  tic("test")
-  timing<-toc()
-  myResults$ElapsedTime(round((timing$toc-timing$tic)/60,1))
   
-  return(myResults)
-  
-}
