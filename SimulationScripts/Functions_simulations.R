@@ -10,8 +10,8 @@ sims_runSimulations<-function(myLakeObject,
                             numberFish=myParamsObject$numberFish,
                             fishShorelineBuffer = myParamsObject$fishShorelineBuffer,
                             mySeed=mySimsObject$seed)
-  
-  myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
+
+    myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
                            lakeName=myLakeObject$lakeName,
                            anglerBoatDistribution = myParamsObject$anglerBoatDistribution,
                            anglerBankDistribution = myParamsObject$anglerBankDistribution,
@@ -52,6 +52,7 @@ sims_runSimulations<-function(myLakeObject,
   
   #add elapsed time to results
   timing<-toc()
+  tic.clear()
   myResults$timings$ElapsedTime=round((timing$toc-timing$tic)/60,1)
   
   return(myResults)

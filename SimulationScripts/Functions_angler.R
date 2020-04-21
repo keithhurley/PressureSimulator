@@ -4,16 +4,21 @@
 #  1) random - assumes single angler party
 #  2) clustered - clusters by party size
 
-anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
+anglers_distributeAnglersIntoParties<-function(numberAnglers=4000,
                                   meanPartySize=2,
                                   maxPartySize=4,
-                                  mySeed){
+                                  mySeed,
+                                  numberSims=3000){
+  
   #set seed
   set.seed(round(mySeed*55,0))
   
   #create parties of anglers
-  numberOfParties=round(numberAnglers/meanPartySize)
-  parties<-data.frame(partyId=1:numberOfParties) 
+  numberOfParties=round(numberAnglers/meanPartySize)*numberSims
+  parties<-data.frame(simId=sort(rep(1:numberSims, numberOfParties/numberSims))) %>%
+    group_by(simId) %>%
+    mutate(partyId=row_number()) %>%
+    ungroup()
   
   #do next step in one call to rnorm or rpois for efficiency...not in mutate statement
   parties$numberInParty=round(rpois(nrow(parties), meanPartySize),0)
@@ -23,46 +28,54 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
     filter(numberInParty>0) %>%
     filter(numberInParty<=maxPartySize)
   
-  sum(parties$numberInParty)
-  table(parties$numberInParty)
+  #parties %>% group_by(simId) %>% summarise(tot=sum(numberInParty))
+  #sum(parties$numberInParty)
+  #table(parties$numberInParty)
   
   #trim total numbers to no more than requested number of anglers
-  while (sum(parties$numberInParty)>numberAnglers) {
-    parties <- parties[-nrow(parties),]
+  parties<-parties %>% mutate(rowId=row_number())
+  for(i in 1:numberSims)  {
+    while (sum(parties$numberInParty[parties$simId==i])>numberAnglers) {
+      parties <<- parties[!(parties$rowId==max(parties$rowId[parties$simId==i])),] 
+      }
   }
-  
-  sum(parties$numberInParty)
-  
+  parties<-parties %>% select(-rowId)
+
   #add parties to get to total number of anglers
+  cl<-makeCluster(2)
+  registerDoParallel(cl)
+  foreach(i = 1:numberSims) %dopar%  {
     #calculate how many parties of mean size can be used and add them
-    currentSum<-sum(parties$numberInParty)
+    currentSum<-sum(parties$numberInParty[parties$simId==i])
     if (numberAnglers-currentSum>=round(meanPartySize,0)) {
       numberNeeded=floor((numberAnglers-currentSum)/round(meanPartySize,0))
       parties<-rbind(parties,
-                     data.frame(partyId=c(seq(from=max(parties$partyId)+1,
+                     data.frame(simId=i,
+                                partyId=c(seq(from=max(parties$partyId)+1,
                                               to=max(parties$partyId)+numberNeeded, 
                                               by=1)),
-                       numberInParty=rep(round(meanPartySize,0),numberNeeded)))
+                                numberInParty=rep(round(meanPartySize,0),numberNeeded)))
     } 
 
-    sum(parties$numberInParty)
-    
     #if short less than one mean party size...add parties of one until you get there
-    while(sum(parties$numberInParty)<numberAnglers){
+    while(sum(parties$numberInParty[parties$simId==i])<numberAnglers){
       parties<-rbind(parties,
-                     c(partyId=max(parties$partyId)+1,
+                     c(simId=i,
+                       partyId=max(parties$partyId)+1,
                        numberInParty=1))
     }
     
-    sum(parties$numberInParty)
-    table(parties$numberInParty)
+  }
+  stopCluster(cl)  
+  
+  #renumber parties so they are consecutive
+  parties<-parties %>%
+    select(-partyId) %>% 
+    group_by(simId) %>%
+    mutate(partyId=row_number())
     
-    parties<-parties %>%
-      select(-partyId) %>% 
-      rowid_to_column(var="partyId")
-    
-    return(parties)
-    
+  return(parties)
+  
 }
 
 
@@ -94,14 +107,19 @@ anglers_place_bank<-function(lakeGeom,
   }
     
   if (anglerBankDistribution=="Random") {
+    
     myAnglers<-lakeGeom_line %>% 
-      st_line_sample(n=numberAnglers, type="random")
+      st_line_sample(n=as.integer(numberAnglers)*numberSims, type="random")
+    
     myAnglers<-myAnglers %>% st_cast("POINT")
     myAnglers<-st_set_crs(myAnglers, 6343)
     myAnglers<-st_cast(myAnglers) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
-      rownames_to_column("partyId")
+      mutate(simId=sort(rep(1:numberSims, numberAnglers))) %>%
+      group_by(simId) %>%
+      mutate(partyId=row_number()) %>%
+      ungroup()
     myAnglers$anglerType="Bank"
   }
   
@@ -111,9 +129,10 @@ anglers_place_bank<-function(lakeGeom,
   partyList<-anglers_distributeAnglersIntoParties(numberAnglers=numberAnglers,
                                                   meanPartySize=meanPartySizeBank,
                                                   maxPartySize = maxPartySizeBank,
-                                                  mySeed=mySeed)
+                                                  mySeed=mySeed,
+                                                  numberSims=numberSims)
   
-  #get random points for each bank party
+  ♦#get random points for each bank party
   myAnglers<-lakeGeom_line %>% 
     st_line_sample(n=nrow(partyList), type="random")
   
@@ -205,10 +224,13 @@ anglers_place_boat<-function(lakeGeom,
   set.seed(round(mySeed*0.356/0.85324,0))
   
   if (anglerBoatDistribution=="Random") {
-    myAnglers<-st_sample(st_buffer(lakeGeom, (-1*boatShorelineBuffer)), size=numberAnglers) %>%
+    myAnglers<-st_sample(st_buffer(lakeGeom, (-1*boatShorelineBuffer)), size=as.integer(numberAnglers)*numberSims) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
-      rownames_to_column("partyId")
+      mutate(simId=sort(rep(1:numberSims, numberAnglers))) %>%
+      group_by(simId) %>%
+      mutate(partyId=row_number()) %>%
+      ungroup()
     myAnglers$anglerType="Boat"
   }
   
@@ -331,7 +353,7 @@ anglers_place<-function(lakeGeom,
                                       anglerBankDistribution = anglerBankDistribution,
                                       anglerBankPartyRadius=anglerBankPartyRadius,
                                       anglerBankRestrictions = anglerBankRestrictions,
-                                      anglerBankProbs=anglerBankProbs,
+                                      anglerBankProbs= anglerBankProbs,
                                       mySeed=mySeed,
                                       numberSims=numberSims)
     # #assign angler method types
