@@ -75,7 +75,8 @@ anglers_place_bank<-function(lakeGeom,
                              anglerBankPartyRadius,
                              anglerBankRestrictions, 
                              anglerBankProbs,
-                             mySeed){
+                             mySeed,
+                             numberSims){
 
   #set seed
   set.seed(round(mySeed*0.5475/0.213234,0))
@@ -277,23 +278,23 @@ anglers_place_boat<-function(lakeGeom,
   return(myAnglers)
 }
 
-anglers_assign_method<-function(tmpAnglers=myBankAnglers,
-                                percentLure=50,
-                                mySeed) {
-  
-  #calculate percent bait anglers
-  percentLure<-(percentLure/100)
-  percentBait<-((100-percentLure)/100)
-  
-  #set seed
-  set.seed<-round(mySeed*0.12345/0.2134,0)
-  
-  #assign methods
-  tmpAnglers$anglerMethod<-sample(c("Lure", "Bait"), size=nrow(tmpAnglers), replace=TRUE, prob=c(percentLure, percentBait))
-  
-  #return
-  return(tmpAnglers)
-}
+# anglers_assign_method<-function(tmpAnglers=myBankAnglers,
+#                                 percentLure=50,
+#                                 mySeed) {
+#   
+#   #calculate percent bait anglers
+#   percentLure<-(percentLure/100)
+#   percentBait<-((100-percentLure)/100)
+#   
+#   #set seed
+#   set.seed<-round(mySeed*0.12345/0.2134,0)
+#   
+#   #assign methods
+#   tmpAnglers$anglerMethod<-sample(c("Lure", "Bait"), size=nrow(tmpAnglers), replace=TRUE, prob=c(percentLure, percentBait))
+#   
+#   #return
+#   return(tmpAnglers)
+# }
 
 anglers_place<-function(lakeGeom,
                         lakeName,
@@ -312,9 +313,10 @@ anglers_place<-function(lakeGeom,
                         anglerBoatRestrictions=NA,
                         anglerBoatProbs=NA,
                         boatShorelineBuffer,
-                        anglerBankLureProb=100,
-                        anglerBoatLureProb=100,
-                        mySeed){
+                        #anglerBankLureProb=100,
+                        #anglerBoatLureProb=100,
+                        mySeed,
+                        numberSims){
 
   #calculate remaining precentages
   percentBoat<-(100-percentBank)
@@ -330,11 +332,12 @@ anglers_place<-function(lakeGeom,
                                       anglerBankPartyRadius=anglerBankPartyRadius,
                                       anglerBankRestrictions = anglerBankRestrictions,
                                       anglerBankProbs=anglerBankProbs,
-                                      mySeed=mySeed)
-    #assign angler method types
-    myBankAnglers<-anglers_assign_method(myBankAnglers, 
-                                         anglerBankLureProb-50,
-                                         mySeed)
+                                      mySeed=mySeed,
+                                      numberSims=numberSims)
+    # #assign angler method types
+    # myBankAnglers<-anglers_assign_method(myBankAnglers, 
+    #                                      anglerBankLureProb-50,
+    #                                      mySeed)
   } else {
     myBankAnglers<-NA
   }
@@ -351,10 +354,10 @@ anglers_place<-function(lakeGeom,
                                       anglerBoatProbs=anglerBoatProbs,
                                       boatShorelineBuffer=boatShorelineBuffer,
                                       mySeed=mySeed)
-    #assign angler method types
-    myBoatAnglers<-anglers_assign_method(myBoatAnglers, 
-                                         anglerBoatLureProb-50, 
-                                         mySeed)
+    # #assign angler method types
+    # myBoatAnglers<-anglers_assign_method(myBoatAnglers, 
+    #                                      anglerBoatLureProb-50, 
+    #                                      mySeed)
   } else {
     myBoatAnglers<-NA
   }
@@ -363,11 +366,11 @@ anglers_place<-function(lakeGeom,
   
   #combine angler datasets
   if(any(!is.na(myBankAnglers)) & any(!is.na(myBoatAnglers))){
-    myAnglers<-rbind(myBankAnglers %>% select(partyId, anglerType, anglerMethod), myBoatAnglers %>% select(partyId,anglerType, anglerMethod))
+    myAnglers<-rbind(myBankAnglers %>% select(partyId, anglerType), myBoatAnglers %>% select(partyId,anglerType))
   } else if (any(is.na(myBankAnglers)) & any(!is.na(myBoatAnglers))) {
-    myAnglers<-myBoatAnglers %>% select(partyId, anglerType, anglerMethod)
+    myAnglers<-myBoatAnglers %>% select(partyId, anglerType)
   } else if (any(!is.na(myBankAnglers)) & any(is.na(myBoatAnglers))) {
-    myAnglers<-myBankAnglers %>% select(partyId, anglerType, anglerMethod)
+    myAnglers<-myBankAnglers %>% select(partyId, anglerType)
   }
   
   #add angler Id number

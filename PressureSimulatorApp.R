@@ -1,13 +1,8 @@
 options(stringsAsFactors=FALSE)
-library(shiny)
-library(sf)
-library(tidyverse)
-source("../SimulationScripts/Functions_fish.R")
-source("../SimulationScripts/Functions_angler.R")
-source("../SimulationScripts/Functions_casts.R")
-source("../SimulationScripts/Functions_pressure.R")
-source("../SimulationScripts/Functions_themes.R")
-library(tictoc)
+
+
+source("./SimulationScripts/Functions_prep.R")
+
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -31,7 +26,7 @@ ui <- fluidPage(
                                               ),
                                       selectInput('ipLakeGeom',
                                                   'Select A Lake',
-                                                  choice = list.dirs(path='../data/lakes/',recursive=FALSE, full.names = FALSE)
+                                                  choice = list.dirs(path='./data/lakes/',recursive=FALSE, full.names = FALSE)
                                                   ),
                                       uiOutput("restrictionSelection")
                                       )
@@ -212,7 +207,7 @@ server <- function(input, output, session) {
     observeEvent(input$ipLakeGeom,
                  {
                      #load(file="./data/lakes/round_1/lake.rData")
-                     load(file=paste("../data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""))
+                     load(file=paste("./data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""))
                      myValues$lake=lake
                      myValues$lakeName=lake$name[1]
                      myValues$lakeAcres=as.numeric(round(st_area(lake)/4046.86,1))
@@ -222,7 +217,7 @@ server <- function(input, output, session) {
     output$restrictionSelection <- renderUI({
         selectInput("ipShoreRestrictions", 
                     "Select A Shoreline Restriction: ",
-                    choice = c("None", gsub("//.rData", "", list.files(path=paste("../data/lakes/",input$ipLakeGeom,"/restrictions/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/restrictions/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
                     })
     
     output$opLakeName=renderText(myValues$lakeName)
@@ -253,6 +248,18 @@ server <- function(input, output, session) {
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
+                    #load lake object
+                    myLakeObject<-obj_create_default_lake_object()
+                    
+                    #create parameter object
+                    myParamsObject<-obj_create_default_parameters_object()
+                    
+                    #create simulations object
+                    mySimsObject<-obj_create_default_simulations_object()
+                    
+                    
+                    
+                    
                     myResults<-sims_runSimulations(myLakeObject,
                                                    myParamsObject,
                                                    mySimsObject)
@@ -260,15 +267,15 @@ server <- function(input, output, session) {
                     #save output
                     #include runtime
                     #include flag if full run completed?
-                    save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
-                                                              mySimsObject$saveNameBase,
-                                                              save_create_timestamp(),
-                                                              sep=""),
-                                        myLakeObject,
-                                        myParamsObject,
-                                        mySimsObject,
-                                        myResults)
-                    
+                    # save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
+                    #                                           mySimsObject$saveNameBase,
+                    #                                           save_create_timestamp(),
+                    #                                           sep=""),
+                    #                     myLakeObject,
+                    #                     myParamsObject,
+                    #                     mySimsObject,
+                    #                     myResults)
+                    # 
                     
                     
                     
@@ -368,21 +375,21 @@ server <- function(input, output, session) {
                     # #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
                     # #     summarize(meanInteractions=mean())
                     # #     
-                    # return(myResults)
+                    return(myResults)
                 })
     
-        output$TableInteractions=renderTable({SimsResult()$tblInteractionTable})
-        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$tblInteractionTable) + 
+        output$TableInteractions=renderTable({SimsResult()$interactionFrequences})
+        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$interactionFrequences) + 
                                            geom_bar(aes(x=as.numeric(as.character(NumberInteractions)), y=Freq, fill=NumberInteractions), 
                                                     stat="identity") +
                 labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions")+
                                             scale_fill_viridis_d(direction=-1) +
-            scale_y_continuous(limits=c(0,max(SimsResult()$tblInteractionTable$Freq)+20)) +
-            scale_x_continuous(limits=c(-1,max(as.numeric(as.character(SimsResult()$tblInteractionTable$NumberInteractions)))))+
+            scale_y_continuous(limits=c(0,max(SimsResult()$interactionFrequences$Freq)+20)) +
+            scale_x_continuous(limits=c(-1,max(as.numeric(as.character(SimsResult()$interactionFrequences$NumberInteractions)))))+
                                             theme_bw() + 
                                             theme(legend.position="none")
             }) 
-        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$numMeanInteractionsPerFish, sep=""))
+        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$interactionsPerFishMean, sep=""))
 }
 
 # Run the application 

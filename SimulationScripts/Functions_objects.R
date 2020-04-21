@@ -56,7 +56,7 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
 }
 
 obj_create_default_lake_object<-function(){
-  d<-create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
+  d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
                         restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/70percent.rData")
   return(d)
 }
@@ -123,7 +123,7 @@ obj_create_parameters_object<-function(acres,
 
 #create default parameter object
 obj_create_default_parameters_object<-function(){
-  d<-create_parameters_object(
+  d<-obj_create_parameters_object(
     acres=1,
     hoursPerAcre=100,
     tripLengthMean=3.4,
@@ -174,7 +174,7 @@ obj_create_simulations_object<-function(numberSimulations,
 }
 
 obj_create_default_simulations_object<-function(){
-  d<-create_simulations_object(numberSimulations=1,
+  d<-obj_create_simulations_object(numberSimulations=1,
                                runName="default",
                                runDescription="basic dev run",
                                saveNamePath="./outputs/",

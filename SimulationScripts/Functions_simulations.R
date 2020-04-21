@@ -24,7 +24,8 @@ sims_runSimulations<-function(myLakeObject,
                            maxPartySizeBank=myParamsObject$maxPartySizeBank,
                            boatShorelineBuffer= myParamsObject$boatShorelineBuffer,
                            percentBank = myParamsObject$percentBank,
-                           mySeed=mySimsObject$seed)
+                           mySeed=mySimsObject$seed,
+                           numberSims=mySimsObject$numberSimulations)
 
   myResults$myCasts<-casts_place(lakeGeom=myLakeObject$lakeGeom,
                        myAnglers=myResults$myAnglers, 

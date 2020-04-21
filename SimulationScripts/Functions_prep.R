@@ -6,8 +6,8 @@
   library(stringr)
   library(lubridate)
   #library(profvis)
-  require(foreach)
-  require(doParallel)
+  library(foreach)
+  library(doParallel)
   
   
   source("./SimulationScripts/Functions_angler.R")
@@ -15,7 +15,8 @@
   source("./SimulationScripts/Functions_fish.R")
   source("./SimulationScripts/Functions_objects.R")
   source("./SimulationScripts/Functions_simulations.R")
-  source("./SimulationScripts/Functions_themes.R")
+  source("./SimulationScripts/Functions_save.R")
+  source("./Scripts/Functions_themes.R")
   
   
   old<-theme_set(myTheme)

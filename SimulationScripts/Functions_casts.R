@@ -21,7 +21,7 @@ casts_create_cast_coords<-function(myCasts){
     st_coordinates() %>%
     data.frame() %>%
     bind_cols(myCasts) %>% 
-    select(anglerId, castId, anglerType, anglerMethod, cast_X=X, cast_Y=Y)
+    select(anglerId, castId, anglerType, cast_X=X, cast_Y=Y)
   return(myAnglers_coords)
 }
 
@@ -35,7 +35,7 @@ casts_create_random_cast_params_distance<-function(castDistanceMean, castDistanc
   return(myDistance)
 }
 
-cast_create_splashdown_coords<-function(lakeGeom, myCasts_coords, castDistanceMean,
+casts_create_splashdown_coords<-function(lakeGeom, myCasts_coords, castDistanceMean,
                                         castDistanceSd, mySeed){
   #set seed
   set.seed(round(mySeed*0.2175/0.57734,0))
