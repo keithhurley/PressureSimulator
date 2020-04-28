@@ -112,7 +112,7 @@ obj_create_parameters_object<-function(acres,
 
 
     #create pressure params
-    myParamObject$totalAnglers<-round((hoursPerAcre*acres)/tripLengthMean, 0)
+    myParamObject$totalAnglers<-ceiling((hoursPerAcre*acres)/tripLengthMean)
     myParamObject$bankAnglers<-myParamObject$totalAnglers*(percentBank/100)
     myParamObject$boatAnglers<-myParamObject$totalAnglers*((100-percentBank)/100)
     myParamObject$projectedNumberOfCasts<-(hoursPerAcre*acres)*castsPerHourMean
@@ -125,7 +125,7 @@ obj_create_parameters_object<-function(acres,
 obj_create_default_parameters_object<-function(){
   d<-obj_create_parameters_object(
     acres=1,
-    hoursPerAcre=100,
+    hoursPerAcre=50,
     tripLengthMean=3.4,
     tripLengthSd=1,
     castsPerHourMean=60,
@@ -174,7 +174,7 @@ obj_create_simulations_object<-function(numberSimulations,
 }
 
 obj_create_default_simulations_object<-function(){
-  d<-obj_create_simulations_object(numberSimulations=1,
+  d<-obj_create_simulations_object(numberSimulations=10,
                                runName="default",
                                runDescription="basic dev run",
                                saveNamePath="./outputs/",

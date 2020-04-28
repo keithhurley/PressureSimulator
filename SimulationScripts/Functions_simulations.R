@@ -11,7 +11,7 @@ sims_runSimulations<-function(myLakeObject,
                             fishShorelineBuffer = myParamsObject$fishShorelineBuffer,
                             mySeed=mySimsObject$seed)
 
-    myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
+  myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
                            lakeName=myLakeObject$lakeName,
                            anglerBoatDistribution = myParamsObject$anglerBoatDistribution,
                            anglerBankDistribution = myParamsObject$anglerBankDistribution,
@@ -37,19 +37,50 @@ sims_runSimulations<-function(myLakeObject,
   
   #process spatial data for interactions
   tmpFish<-st_intersects(st_buffer(myResults$myFish, 1), myResults$myCasts)
-  myResults$interactionFrequences<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
-  #add interaction count to myFish
-  myResults$myFish$numberInteractions<-tmpFish %>% lengths
+  tmpFish %>% lengths
   #create dataframe of all interactions
-  myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), myResults$myFish$numberInteractions), 2]
-  myResults$myInteractions$anglerId<-myResults$myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+  myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), tmpFish %>% lengths), 2] %>% as.data.frame() %>% select(-geometry)
+  myResults$myInteractions$anglerId<-myResults$myCasts$anglerId[unlist(tmpFish[tmpFish %>% lengths>0])]
   myResults$myInteractions$castId<-myResults$myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
+  myResults$myInteractions<-myResults$myInteractions %>%
+    left_join(myResults$myAnglers %>% as.data.frame() %>% select(anglerId, partyId, simId), by=c("anglerId"))
+  myResults$myInteractions<-myResults$myInteractions %>% mutate(interactionId=row_number())
+
   
-  #calculate mean number ints per fish
-  myResults$interactionsPerFishMean<-mean(myResults$myFish$numberInteractions, na.rm=TRUE)
-  myResults$interactionsPerFishVar<-var(myResults$myFish$numberInteractions, na.rm=TRUE)
-  myResults$interactionsPerFishSd<-sd(myResults$myFish$numberInteractions, na.rm=TRUE)
+  #add table of interaction counts
+  myResults$interactionCounts<-myResults$myInteractions %>%
+    as.data.frame %>%
+    group_by(simId, fishId) %>%
+    summarise(numInteractions=n()) %>%
+    right_join(expand.grid(fishId=seq(1, myParamsObject$numberFish,1), simId=seq(1,mySimsObject$numberSimulations,1)), by=c("simId", "fishId")) %>%
+    mutate(numInteractions=ifelse(is.na(numInteractions), 0, numInteractions)) 
   
+  #add interaction count to myFish
+    #myResults$interactionFrequences<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
+    #yResults$myFish$numberInteractions<-tmpFish %>% lengths
+  
+    #must add in 0's for fish and simulations with no interactions
+    myResults$myFish<-myResults$myInteractions %>%
+      as.data.frame %>%
+      group_by(simId, fishId) %>%
+      summarise(numInteractions=n()) %>%
+      right_join(expand.grid(fishId=seq(1, myParamsObject$numberFish,1), simId=seq(1,mySimsObject$numberSimulations,1)), by=c("simId", "fishId")) %>%
+      mutate(numInteractions=ifelse(is.na(numInteractions), 0, numInteractions)) %>%
+      group_by(fishId) %>% 
+      arrange(simId, fishId) %>%
+      summarise(meanInteractions=mean(numInteractions, na.rm=TRUE),
+                sdInteractions=sd(numInteractions, na.rm=TRUE),
+                numInteractions=n()) %>%
+      mutate(CI=1.96*(sdInteractions/sqrt(numInteractions)),
+            upperCI=meanInteractions+CI,
+            lowerCI=meanInteractions-CI) %>%
+      select(fishId, 
+             InteractionsMean=meanInteractions,
+            InteractionsSd=sdInteractions,
+            InteractionsN=numInteractions,
+            InteractionsCi=CI) %>%
+      right_join(myResults$myFish, by=c("fishId"))
+    
   #add elapsed time to results
   timing<-toc()
   tic.clear()

@@ -2,7 +2,8 @@ options(stringsAsFactors=FALSE)
 
 
 source("./SimulationScripts/Functions_prep.R")
-
+#devtools::install_github('wleepang/shiny-directory-input')
+library(shinyDirectoryInput)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -40,7 +41,7 @@ ui <- fluidPage(
                                       conditionalPanel("input.ipAnglerDistributionType == 'Clustered By Party'",
                                                        tags$span(style="font-weight:bold",
                                                                  "Clustered By Party Options: "),
-                                                       tags$div(style="background: gainsboro; padding:10px, margin-bottom:10px;",
+                                                       tags$div(style="background: gainsboro; padding:10px; margin-bottom:10px;",
                                                                 sliderInput("ipBoatAnglerPartyClusterRadius",
                                                                             "Boat Angler Party Radius",
                                                                             min=1,
@@ -176,17 +177,31 @@ ui <- fluidPage(
                                                   max = 1000,
                                                   step = 10,
                                                   value = 1),
-                                      
+                                      checkboxInput(inputId='ipSaveOutputs', label="Save Outputs?", value=TRUE),
+                                        
+                                      conditionalPanel("input.ipSaveOutputs == true",
+                                              tags$div(style="background: gainsboro; padding:20px; margin-left:20px; margin-bottom:20px;",
+                                                       directoryInput(inputId='directory', label = 'Select a directory:', value = './outputs/'),
+                                                       textInput(inputId="ipSaveName", label="Base name for saved files:", value="delete_me_dev")
+                                              )
+                                        ),
                                       actionButton("doSims", 
-                                          "Run Simulations"))
+                                                   "Run Simulations")
+                                      )
                              )
                          ),
                 tabPanel("Results",
                          tags$div(style="max-width:700px;",
                                   tags$div(style="float:left; width:200px;",
-                                           textOutput('TextMeanInteractions'),
+                                           tags$span(style="font-weight: bold",
+                                                     "Simulation #1 Results:"),
+                                           tags$br(),
+                                           tags$br(),
                                            tableOutput('TableInteractions')),
                                   tags$div(style="float:left; width:500px; padding-left:50px;",
+                                           textOutput('TextMeanInteractions'),
+                                           tags$br(),
+                                           tags$br(),
                                            plotOutput('PlotInteractions'))
                                 )
                          ),
@@ -202,6 +217,25 @@ server <- function(input, output, session) {
     
     myValues<-reactiveValues()
     
+    
+    #this runs the save directory selection box
+    observeEvent(
+        ignoreNULL = TRUE,
+        eventExpr = {
+            input$directory
+        },
+        handlerExpr = {
+            if (input$directory > 0) {
+                # condition prevents handler execution on initial app launch
+                
+                # launch the directory selection dialog with initial path read from the widget
+                path = choose.dir(default = readDirectoryInput(session, 'directory'))
+                
+                # update the widget value
+                updateDirectoryInput(session, 'directory', value = path)
+            }
+        }
+    )
     
     #setup lake name and acres display
     observeEvent(input$ipLakeGeom,
@@ -249,147 +283,61 @@ server <- function(input, output, session) {
     SimsResult<-eventReactive(input$doSims,
                 {
                     #load lake object
-                    myLakeObject<-obj_create_default_lake_object()
+                    myLakeObject<<-obj_create_default_lake_object()
                     
                     #create parameter object
-                    myParamsObject<-obj_create_default_parameters_object()
+                    myParamsObject<<-obj_create_default_parameters_object()
                     
                     #create simulations object
-                    mySimsObject<-obj_create_default_simulations_object()
+                    mySimsObject<<-obj_create_default_simulations_object()
                     
-                    
-                    
-                    
-                    myResults<-sims_runSimulations(myLakeObject,
+                    myResults<<-sims_runSimulations(myLakeObject,
                                                    myParamsObject,
                                                    mySimsObject)
                     
                     #save output
-                    #include runtime
                     #include flag if full run completed?
-                    # save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
-                    #                                           mySimsObject$saveNameBase,
-                    #                                           save_create_timestamp(),
-                    #                                           sep=""),
-                    #                     myLakeObject,
-                    #                     myParamsObject,
-                    #                     mySimsObject,
-                    #                     myResults)
-                    # 
+                    if(input$ipSaveOutputs==TRUE){
+
+                         save_simulation_run(fileNameAndPath=paste(readDirectoryInput(session, 'directory'),
+                                                                    input$ipSaveName,
+                                                                     save_create_timestamp(),
+                                                                     sep=""),
+                                 
+                                             myLakeObject,
+                                             myParamsObject,
+                                             mySimsObject,
+                                             myResults)
+                    }
                     
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    # #RUN SIMULATION HERE
-                    # tic()
-                    # 
-                    # showNotification("Simulations Run Now", duration=10, closeButton=FALSE)
-                    # 
-                    # myRandomSeed=input$ipSeed
-                    # 
-                    # myValues$myPressureObject<-createPressureObject(myValues$lakeAcres,
-                    #                                        input$ipHoursPerAcre,
-                    #                                        input$ipTripLengthMean,
-                    #                                        input$ipTripLengthSd,
-                    #                                        input$ipCastsPerHourMean,
-                    #                                        input$ipCastsPerHourSd)
-                    # 
-                    # showNotification("Loading Lake Geometries", duration=10, closeButton=FALSE)
-                    # 
-                    # showNotification("Placing Fish", duration=10, closeButton=FALSE)
-                    # 
-                    # myFish<-fish_place_random(lakeGeom=myValues$lake,
-                    #     numberFish=input$ipNumberFish,
-                    #     fishShorelineBuffer = input$ipFishShorelineBuffer,
-                    #     mySeed=input$ipSeed)
-                    # 
-                    # showNotification("Placing Anglers", duration=10, closeButton=FALSE)
-                    # suppressWarnings(
-                    # myAnglers<-anglers_place(lakeGeom=myValues$lake,
-                    #                          lakeName=myValues$lakeName,
-                    #                          anglerBoatDistribution = input$ipAnglerDistributionType,
-                    #                          anglerBankDistribution = input$ipAnglerDistributionType,
-                    #                          anglerBoatPartyRadius = input$ipBoatAnglerPartyClusterRadius,
-                    #                          anglerBankPartyRadius = input$ipBankAnglerPartyClusterRadius,
-                    #                          totalAnglers = myValues$myPressureObject$myNumberAnglers,
-                    #                          meanPartySizeBoat=input$ipMeanPartySizeBoat,
-                    #                          maxPartySizeBoat=input$ipMaxPartySizeBoat,
-                    #                          meanPartySizeBank=input$ipMeanPartySizeBank,
-                    #                          maxPartySizeBank=input$ipMaxPartySizeBank,
-                    #                          boatShorelineBuffer= input$ipBoatShorelineBuffer,
-                    #                          anglerBankRestrictions=input$ipShoreRestrictions,
-                    #                          percentBank = input$ipPercentBank,
-                    #                          mySeed=input$ipSeed)
-                    # )
-                    # 
-                    # print(ggplot() +
-                    #    geom_sf(data=myValues$lake, fill="lightskyblue") +
-                    #    geom_sf(data=myAnglers, color="red", size=2) +
-                    #    #geom_sf(data=myFish, color="black", size=1.5) +
-                    #    labs(title="Anglers"))
-                    # 
-                    # showNotification("Simulating Casts", duration=10, closeButton=FALSE)
-                    # 
-                    # myCasts<-casts_place(lakeGeom=myValues$lake,
-                    #                      myAnglers, 
-                    #                      numberCastsPerAngler=20,
-                    #                      meanCastDistance=input$ipCastDistanceMean,
-                    #                      sdCastDistance=input$ipCastDistanceSd,
-                    #                      meanCastsPerHour=input$ipCastPerHourMean,
-                    #                      sdCastsPerHour=input$ipCastPerHourSd,
-                    #                      mySeed=input$ipSeed)
-                    # 
-                    # elapsedTime=toc()
-                    # showNotification(paste("Simulations Complete (Elapsed Time = ", round((elapsedTime$toc-elapsedTime$tic)/60,2), " Minutes)", sep=""), duration = NULL)
-                    # 
-                    # tmpFish<-st_intersects(st_buffer(myFish, input$ipDetectionDistance), myCasts)
-                    # 
-                    # myResults<-list()
-                    # tblInteractionTable<-table(tmpFish %>% lengths) %>% data.frame() %>% rename("NumberInteractions"="Var1")
-                    # myResults$tblInteractionTable<-tblInteractionTable
-                    # myResults$pltInteractionTable<-ggplot(data=myResults$tblInteractions) +
-                    #     geom_bar(aes(x=NumberInteractions, y=Freq), stat="identity", size=2)
-                    # 
-                    # #add interaction count to myFish
-                    # myFish$castInteractions<-tmpFish %>% lengths
-                    # table(myFish$castInteractions)
-                    # 
-                    # #create dataframe of all interactions
-                    # myInteractions<-myFish[rep(seq_len(dim(myFish)[1]), myFish$castInteractions), 2]
-                    # myInteractions$anglerId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
-                    # myInteractions$castId<-myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
-                    # 
-                    # myResults$numMeanInteractionsPerFish<-mean(myFish$castInteractions)
-                    # # myResults$meanInteractions<-myInteractions %>%
-                    # #     group_by(fishId) %>%
-                    # #     summarize(numInteractions=n()) %>%
-                    # #     ungroup() %>%
-                    # #     right_join(myFish[,c("fishId")], by=c("fishId")) %>%
-                    # #     mutate(numInteractions=ifelse(is.na(numInteractions),0, numInteractions)) %>%
-                    # #     summarize(meanInteractions=mean(numInteractions, na.rm=TRUE))
-                    # #     summarize(meanInteractions=mean())
-                    # #     
-                    return(myResults)
+                    return(TRUE)
                 })
     
-        output$TableInteractions=renderTable({SimsResult()$interactionFrequences})
-        output$PlotInteractions=renderPlot({ggplot(data=SimsResult()$interactionFrequences) + 
-                                           geom_bar(aes(x=as.numeric(as.character(NumberInteractions)), y=Freq, fill=NumberInteractions), 
-                                                    stat="identity") +
-                labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions")+
-                                            scale_fill_viridis_d(direction=-1) +
-            scale_y_continuous(limits=c(0,max(SimsResult()$interactionFrequences$Freq)+20)) +
-            scale_x_continuous(limits=c(-1,max(as.numeric(as.character(SimsResult()$interactionFrequences$NumberInteractions)))))+
-                                            theme_bw() + 
-                                            theme(legend.position="none")
-            }) 
-        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", SimsResult()$interactionsPerFishMean, sep=""))
+        output$TableInteractions=renderTable({
+            myResults$interactionCounts %>% 
+                filter(simId==1) %>%
+                group_by(numInteractions) %>%
+                summarise(Freq=n()) %>%
+                rename("Number Of Interactions"=numInteractions,
+                       "Frequency"=Freq)
+            })
+        
+        output$PlotInteractions=renderPlot({ggplot(data=myResults$interactionCounts %>% 
+                                                       filter(simId==1) %>%
+                                                       group_by(numInteractions) %>%
+                                                       summarise(Freq=n())) + 
+                                            geom_bar(aes(x=numInteractions, y=Freq, fill=numInteractions), 
+                                                     stat="identity") +
+                 labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions") +
+                                             scale_fill_viridis_c(direction=-1) +
+             scale_y_continuous(limits=c(0,max(myResults$interactionCounts$numInteractions)+20)) +
+             scale_x_continuous(limits=c(-1,max(as.numeric(as.character(myResults$interactionCounts$numInteractions)))))+
+                                             theme_bw() + 
+                                             theme(legend.position="none")
+             })
+        
+        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", 
+                                                     round(myResults$myFish %>% summarise(myMean=mean(InteractionsMean, na.rm=TRUE)),1), sep=""))
 }
 
 # Run the application 

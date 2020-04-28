@@ -1,9 +1,9 @@
 #creates base dataframe to hold all casts
-casts_create_df<-function(myAnglers,castsPerHourMean, castsPerHourSd){
+casts_create_df<-function(myAnglers,castsPerHourMean, castsPerHourSd=1){
   tmp_myAnglers<-data.frame(anglerId=myAnglers$anglerId)
   #absolute function is used to correct for any negative number of casts
   #+1 is used for 0 cast corrections
-  tmp_myAnglers$numberOfCastsPerHour<-abs(as.numeric(lapply(myAnglers$anglerId, function(x) floor(rnorm(1,mean=40, sd=10))))+1)
+  tmp_myAnglers$numberOfCastsPerHour<-abs(as.numeric(lapply(myAnglers$anglerId, function(x) floor(rnorm(1,mean=castsPerHourMean, sd=castsPerHourSd)))))+1
   tmp_myAnglers <- uncount(tmp_myAnglers,weights=numberOfCastsPerHour) %>%
     group_by(anglerId) %>%
     mutate(castId=row_number()) %>%
@@ -11,7 +11,7 @@ casts_create_df<-function(myAnglers,castsPerHourMean, castsPerHourSd){
     
   
   myAnglers <- myAnglers %>%
-    left_join(tmp_myAnglers, by="anglerId")
+    right_join(tmp_myAnglers, by="anglerId")
   
   return(myAnglers)
 }
