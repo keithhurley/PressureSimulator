@@ -56,8 +56,8 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
 }
 
 obj_create_default_lake_object<-function(){
-  d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
-                        restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/70percent.rData")
+  d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_10/lake.rData",
+                        restrictionsShore_path = "./data/lakes/round_10/restrictions/shore/70percent.rData")
   return(d)
 }
 
@@ -124,8 +124,8 @@ obj_create_parameters_object<-function(acres,
 #create default parameter object
 obj_create_default_parameters_object<-function(){
   d<-obj_create_parameters_object(
-    acres=1,
-    hoursPerAcre=50,
+    acres=10,
+    hoursPerAcre=500,
     tripLengthMean=3.4,
     tripLengthSd=1,
     castsPerHourMean=60,
@@ -158,7 +158,10 @@ obj_create_simulations_object<-function(numberSimulations,
                                     runDescription,
                                     saveNamePath,
                                     saveNameBase,
-                                    seed)
+                                    seed,
+                                    parGroupSize=10, #must be at least 3?
+                                    parNumberCores=4 
+)
   {
   
   mySimsObject<-list()
@@ -169,6 +172,8 @@ obj_create_simulations_object<-function(numberSimulations,
   mySimsObject$runDescription=runDescription
   mySimsObject$saveNamePath=saveNamePath
   mySimsObject$saveNameBase=saveNameBase
+  mySimsObject$parGroupSize=parGroupSize
+  mySimsObject$parNumberCores=parNumberCores
   return(mySimsObject)
   
 }
@@ -179,7 +184,9 @@ obj_create_default_simulations_object<-function(){
                                runDescription="basic dev run",
                                saveNamePath="./outputs/",
                                saveNameBase="delete_me_dev",
-                               seed=12345)
+                               seed=12345,
+                               parGroupSize=10, #must be at least 3?
+                               parNumberCores=2)
   return(d)
   }
 

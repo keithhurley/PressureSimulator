@@ -2,6 +2,9 @@ sims_runSimulations<-function(myLakeObject,
                          myParamsObject,
                          mySimsObject){
   
+  cl<-makeCluster(mySimsObject$parNumberCores, type="PSOCK")
+  registerDoParallel(cl)
+  
   tic("Simulation Time =")
   
   myResults<-list()
@@ -25,7 +28,9 @@ sims_runSimulations<-function(myLakeObject,
                            boatShorelineBuffer= myParamsObject$boatShorelineBuffer,
                            percentBank = myParamsObject$percentBank,
                            mySeed=mySimsObject$seed,
-                           numberSims=mySimsObject$numberSimulations)
+                           numberSims=mySimsObject$numberSimulations,
+                           parGroupSize=mySimsObject$parGroupSize,
+                           parNumberCores=mySimsObject$parNumberCores)
 
   myResults$myCasts<-casts_place(lakeGeom=myLakeObject$lakeGeom,
                        myAnglers=myResults$myAnglers, 
@@ -85,6 +90,8 @@ sims_runSimulations<-function(myLakeObject,
   timing<-toc()
   tic.clear()
   myResults$timings$ElapsedTime=round((timing$toc-timing$tic)/60,1)
+  
+  stopCluster(cl)
   
   return(myResults)
   

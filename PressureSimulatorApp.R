@@ -4,10 +4,12 @@ options(stringsAsFactors=FALSE)
 source("./SimulationScripts/Functions_prep.R")
 #devtools::install_github('wleepang/shiny-directory-input')
 library(shinyDirectoryInput)
+library(shinybusy)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
+    use_busy_spinner(spin = "orbit"),
+    
     navbarPage("Fishing Pressure Simulator",
                id="PageNav",
                 tabPanel("Settings",
@@ -177,6 +179,18 @@ ui <- fluidPage(
                                                   max = 1000,
                                                   step = 10,
                                                   value = 1),
+                                      sliderInput("ipNumberOfCores",
+                                                  "Number Of Cores:",
+                                                  min=1,
+                                                  max=96,
+                                                  step=1,
+                                                  value=2),
+                                      sliderInput("ipGroupSize",
+                                                  "Parallel Group Size:",
+                                                  min=3,
+                                                  max=25,
+                                                  step=1,
+                                                  value=10),
                                       checkboxInput(inputId='ipSaveOutputs', label="Save Outputs?", value=TRUE),
                                         
                                       conditionalPanel("input.ipSaveOutputs == true",
@@ -185,6 +199,7 @@ ui <- fluidPage(
                                                        textInput(inputId="ipSaveName", label="Base name for saved files:", value="delete_me_dev")
                                               )
                                         ),
+                                      
                                       actionButton("doSims", 
                                                    "Run Simulations")
                                       )
@@ -202,7 +217,8 @@ ui <- fluidPage(
                                            textOutput('TextMeanInteractions'),
                                            tags$br(),
                                            tags$br(),
-                                           plotOutput('PlotInteractions'))
+                                           plotOutput('PlotInteractions')
+                                           )
                                 )
                          ),
                 tabPanel("Plots"#,
@@ -216,6 +232,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
     
     myValues<-reactiveValues()
+    #myResults<-reactiveVal()
+    #myResults(NULL)
     
     
     #this runs the save directory selection box
@@ -275,25 +293,44 @@ server <- function(input, output, session) {
     
     observeEvent(input$doSims,
                  { 
-                   updateTabsetPanel(session, "PageNav",
-                                      selected = "Results")  
+                     show_modal_spinner(spin="orbit", text="Running Simulations - Keep Your Arms And Legs Inside The Vehicle")
+                     updateTabsetPanel(session, "PageNav",
+                                  selected = "Results")
+                     SimsResult()
+                     remove_modal_spinner()
                  })
 
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
+                    print("1")
+                    
                     #load lake object
                     myLakeObject<<-obj_create_default_lake_object()
+                    
+                    print("2")
                     
                     #create parameter object
                     myParamsObject<<-obj_create_default_parameters_object()
                     
                     #create simulations object
                     mySimsObject<<-obj_create_default_simulations_object()
+                    mySimsObject$parGroupSize=input$ipGroupSize
+                    mySimsObject$parNumberCores=input$ipNumberCores
                     
-                    myResults<<-sims_runSimulations(myLakeObject,
+                    print("3")
+                    
+                    sims_runSimulations(myLakeObject,
                                                    myParamsObject,
                                                    mySimsObject)
+                    
+                    myValues$tblInteractions<-myResults$interactionCounts %>%
+                        filter(simId==1) %>%
+                        group_by(numInteractions) %>%
+                        summarise(Freq=n()) %>%
+                        rename("Number Of Interactions"=numInteractions,
+                               "Frequency"=Freq)
+                    print("5")
                     
                     #save output
                     #include flag if full run completed?
@@ -313,31 +350,26 @@ server <- function(input, output, session) {
                     return(TRUE)
                 })
     
-        output$TableInteractions=renderTable({
-            myResults$interactionCounts %>% 
-                filter(simId==1) %>%
-                group_by(numInteractions) %>%
-                summarise(Freq=n()) %>%
-                rename("Number Of Interactions"=numInteractions,
-                       "Frequency"=Freq)
-            })
+        output$TableInteractions=renderText({})
+        output$TableInteractions=renderTable({myValues$tblInteractions})
         
         output$PlotInteractions=renderPlot({ggplot(data=myResults$interactionCounts %>% 
                                                        filter(simId==1) %>%
                                                        group_by(numInteractions) %>%
-                                                       summarise(Freq=n())) + 
-                                            geom_bar(aes(x=numInteractions, y=Freq, fill=numInteractions), 
+                                                       summarise(Freq=n())) +
+                                            geom_bar(aes(x=numInteractions, y=Freq, fill=numInteractions),
                                                      stat="identity") +
                  labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions") +
                                              scale_fill_viridis_c(direction=-1) +
              scale_y_continuous(limits=c(0,max(myResults$interactionCounts$numInteractions)+20)) +
              scale_x_continuous(limits=c(-1,max(as.numeric(as.character(myResults$interactionCounts$numInteractions)))))+
-                                             theme_bw() + 
+                                             theme_bw() +
                                              theme(legend.position="none")
              })
         
-        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ", 
-                                                     round(myResults$myFish %>% summarise(myMean=mean(InteractionsMean, na.rm=TRUE)),1), sep=""))
+        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ",
+                                                    round(myResults$myFish %>%
+                                                              summarise(myMean=mean(InteractionsMean, na.rm=TRUE)),1), sep=""))
 }
 
 # Run the application 

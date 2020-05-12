@@ -1,3 +1,4 @@
+#setwd("C:/Users/keith.hurley/Documents/GitHub/PressureSimulator")
 source("./SimulationScripts/Functions_prep.R")
 
 #load lake object
@@ -11,8 +12,8 @@ mySimsObject<-obj_create_default_simulations_object()
 
 #run simulations
 myResults<-sims_runSimulations(myLakeObject,
-               myParamsObject,
-               mySimsObject)
+                myParamsObject,
+                mySimsObject)
 
 #save output
   #include runtime
@@ -25,7 +26,6 @@ save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
                     myParamsObject,
                     mySimsObject,
                     myResults)
-
 
 
 
