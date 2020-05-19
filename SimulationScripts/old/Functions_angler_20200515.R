@@ -10,6 +10,8 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=400,
                                   mySeed,
                                   numberSims=3000){
 
+  tic("Make Parties")
+  
   #set seed
   set.seed(round(mySeed*55,0))
   
@@ -96,6 +98,8 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=400,
     group_by(simId) %>%
     mutate(partyId=row_number())
   
+  toc()
+    
   return(parties)
 }
 
@@ -117,7 +121,7 @@ anglers_place_bank<-function(lakeGeom,
 
   #set seed
   set.seed(round(mySeed*0.5475/0.213234,0))
-  
+
   
   #convert lake polygon to a linestring to get just bank
   if (anglerBankRestrictions == "None" | is.na(anglerBankRestrictions)) {
@@ -130,7 +134,7 @@ anglers_place_bank<-function(lakeGeom,
       st_cast("LINESTRING")
     rm(lake_restrictions_shore)
   }
-  
+
   if (anglerBankDistribution=="Random") {
     
     myAnglers<-lakeGeom_line %>% 
@@ -149,52 +153,132 @@ anglers_place_bank<-function(lakeGeom,
   }
   
   if (anglerBankDistribution=="Clustered By Party") {
-    #create parties of anglers
-    partyList<-anglers_distributeAnglersIntoParties(numberAnglers=numberAnglers,
-                                                    meanPartySize=meanPartySizeBank,
-                                                    maxPartySize = maxPartySizeBank,
-                                                    mySeed=mySeed,
-                                                    numberSims=numberSims)
-    
-    #get random points for each bank party
-    myAnglers<-lakeGeom_line %>% 
-      st_line_sample(n=nrow(partyList), type="random") %>% 
-      st_cast("POINT") %>%
-      st_set_crs(6343) %>% 
-      st_cast() %>%
-      as.data.frame() %>%
-      st_as_sf(crs = 6343) %>%
-      bind_cols(partyList) 
-    
-    #alter row location so subsequent anglers in a party have a different location
-    #...within a buffered circle (i.e. a boat)
-    
-    myAnglers_buf<-st_buffer(myAnglers, anglerBankPartyRadius * ifelse(myAnglers$numberInParty-1==0, 1, myAnglers$numberInParty))  
-    myAnglers_segment<-st_intersection(myAnglers_buf, lakeGeom_line) %>% st_cast("LINESTRING")
-    myAnglers2<-myAnglers %>% 
-      st_drop_geometry() %>% 
-      st_as_sf(geometry=st_line_sample(myAnglers_segment, n=myAnglers$numberInParty)) %>% 
-      st_cast("POINT") %>%
-      group_by(simId,partyId) %>% 
-      mutate(partyAnglerId=row_number()) %>%
-      ungroup() %>%
-      mutate(anglerId=row_number())
-    
-    #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
-    #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
-    myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$geometry
-    
-    # ggplot() +
-    #   geom_sf(data=lakeGeom)+
-    #   geom_sf(data=st_buffer(myAnglers[myAnglers$partyId==22,] %>% filter(partyAnglerId==1),12), fill="red", alpha=.5, color="red") +
-    #   geom_sf(data=myAnglers[myAnglers$partyId==22,], size=1)
-    
-    myAnglers<-myAnglers2
-    rm(myAnglers2)
-    myAnglers$anglerType="Bank"
-    
+tic("parties")
+  #create parties of anglers
+  partyList<-anglers_distributeAnglersIntoParties(numberAnglers=numberAnglers,
+                                             meanPartySize=meanPartySizeBank,
+                                                  maxPartySize = maxPartySizeBank,
+                                                  mySeed=mySeed,
+                                                  numberSims=numberSims)
+toc()
+tic("place parties")
+  #get random points for each bank party
+  myAnglers<-lakeGeom_line %>% 
+    st_line_sample(n=nrow(partyList), type="random") %>% 
+    st_cast("POINT") %>%
+    st_set_crs(6343) %>% 
+    st_cast() %>%
+    as.data.frame() %>%
+    st_as_sf(crs = 6343) %>%
+    bind_cols(partyList) %>%
+    mutate(anglerType="Bank")
 
+  #alter row location so subsequent anglers in a party have a different location
+  #...within a buffered circle (i.e. a boat)
+  #MUST PARELLALIZE this for st_buffer
+toc()
+tic("place other party members")
+  suppressMessages({
+    print(paste(getDoParWorkers(), " Cores Will Be Used", sep=""))
+  
+myAnglers2<-foreach(i=seq(1,floor(nrow(myAnglers)/parGroupSize)*parGroupSize,by=parGroupSize), .combine="rbind") %dopar% {
+
+    require(dplyr)
+    require(sf)
+    require(foreach)
+  
+  #do full groups using parallel processing
+  k<-foreach(j=0:(parGroupSize-1), .combine="rbind") %do% {
+
+    #don't do expensive buffer and intersection calculations when not necessary
+    if(myAnglers$numberInParty[i+j]==1){
+        myTmp<-myAnglers$geometry[i+j] %>%
+        as.data.frame() %>%
+        st_as_sf(crs=6343)
+    } else {
+tic("Buffer party")
+      myTmp<-st_buffer(myAnglers[i+j,], anglerBankPartyRadius * (myAnglers$numberInParty[i+j]-1))  
+toc()
+tic("intersection to get shoreline for party area")
+      myTmp<-st_intersection(lakeGeom_line, myTmp)
+toc()
+tic("sampling")
+      myTmp<-st_cast(myTmp, "LINESTRING", warn=FALSE) %>%
+        st_line_sample(n=myAnglers$numberInParty[i+j], type="random") %>%
+        st_cast("POINT") %>%
+        as.data.frame() %>%
+        st_as_sf(crs = 6343)
+
+      #filter out extras for when the geography buffering of angler 1 creates extras
+      myTmp<-myTmp[1:myAnglers$numberInParty[i+j],]
+      
+    }
+
+    return(myTmp)
   }
+  
+  return(k)
+}
+
+#do the last group which may or may not be partial
+#create proper number of for loop to do last items
+  #get number of odd items of partial group
+  o=nrow(myAnglers) - (floor(nrow(myAnglers)/parGroupSize)*parGroupSize)
+  i=floor(nrow(myAnglers)/parGroupSize)*parGroupSize
+  l<-foreach(j=1:o, .combine="rbind") %do% {
+
+    #don't do expensive buffer and intersection calculations when not necessary
+    if(myAnglers$numberInParty[i+j]==1){
+      myTmp<-myAnglers$geometry[i+j] %>%
+        as.data.frame() %>%
+        st_as_sf(crs=6343)
+    } else {
+      
+      myTmp<-st_buffer(myAnglers[i+j,], anglerBankPartyRadius * (myAnglers$numberInParty[i+j]-1))  
+      myTmp<-st_intersection(lakeGeom_line, myTmp)
+
+      myTmp<-st_cast(myTmp, "LINESTRING", warn=FALSE) %>%
+        st_line_sample(n=myAnglers$numberInParty[i+j], type="random") %>%
+        st_cast("POINT") %>%
+        as.data.frame() %>%
+        st_as_sf(crs = 6343)
+      #filter out extras for when the geography buffering of angler 1 creates extras
+      myTmp<-myTmp[1:myAnglers$numberInParty[i+j],]
+    }
+    return(myTmp)
+  }
+  
+  myAnglers2<-rbind(myAnglers2,l)
+  rm(l)
+
+  })
+  
+toc()
+  
+  myAnglers2<-myAnglers2 %>%
+    st_as_sf() %>%
+    bind_cols(partyList[rep(1:nrow(partyList), partyList$numberInParty),] %>% 
+                group_by(simId,partyId) %>% 
+                mutate(partyAnglerId=row_number()) %>%
+                ungroup() %>%
+                mutate(anglerId=row_number()))
+  
+  #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
+  #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
+  myAnglers2[myAnglers2$partyAnglerId==1,]$geometry<-myAnglers$geometry
+
+  # ggplot() +
+  #   geom_sf(data=lakeGeom)+
+  #   geom_sf(data=st_buffer(myAnglers2[myAnglers2$partyId==22,] %>% filter(partyAnglerId==1),12), fill="red", alpha=.5, color="red") +
+  #   geom_sf(data=myAnglers2[myAnglers2$partyId==22,], size=1)
+
+  myAnglers<-myAnglers2
+  rm(myAnglers2)
+  myAnglers$anglerType="Bank"
+  
+toc()
+
+}
   
   return(myAnglers)
 }
@@ -214,6 +298,8 @@ anglers_place_boat<-function(lakeGeom,
                              numberSims=numberSims,
                              parGroupSize,
                              parNumberCores){
+  
+  tic("Place Boat Anglers")
   
   #set seed
   set.seed(round(mySeed*0.356/0.85324,0))
@@ -250,18 +336,47 @@ anglers_place_boat<-function(lakeGeom,
 
   #alter row location so subsequent anglers in a party have a different location
   #...within a buffered circle (i.e. a boat)
+    #MUST PARELLALIZE this for st_buffer
+    
+  
+    
     suppressMessages({
       print(paste(getDoParWorkers(), " Cores Will Be Used", sep=""))
       
+      myAnglers2<-foreach(i=seq(1,floor(nrow(myAnglers)/parGroupSize)*parGroupSize,by=parGroupSize), .combine="rbind") %dopar% {
+
+    require(dplyr)
+    require(sf)
+    require(foreach)
+    
+    #do full groups using parallel processing
+    k<-foreach(j=0:(parGroupSize-1), .combine="rbind") %do% {
+          
+    #don't do expensive buffer and intersection calculations when not necessary
+    if(myAnglers$numberInParty[i+j]==1){
+      myTmp<-myAnglers$geometry[i+j] %>%
+        as.data.frame()  %>%
+        st_as_sf(crs=6343)
+    } else {
+    myTmp<-st_buffer(myAnglers[i+j,], anglerBoatPartyRadius) %>% 
+      st_sample(size=myAnglers[i+j,]$numberInParty) %>%
+      data.frame()%>%
+      st_as_sf(crs=6343)
+    }
+      return(myTmp)
+    }
+    
+    return(k)
+  }
+    
       
-    myAnglers2<-foreach(i=seq(1,floor(nrow(myAnglers)/parGroupSize)*parGroupSize,by=parGroupSize), .combine="rbind") %dopar% {
       
-      require(dplyr)
-      require(sf)
-      require(foreach)
-      
-      #do full groups using parallel processing
-      k<-foreach(j=0:(parGroupSize-1), .combine="rbind") %do% {
+      #do the last group which may or may not be partial
+      #create proper number of for loop to do last items
+      #get number of odd items of partial group
+      o=nrow(myAnglers) - (floor(nrow(myAnglers)/parGroupSize)*parGroupSize)
+      i=floor(nrow(myAnglers)/parGroupSize)*parGroupSize
+      l<-foreach(j=1:o, .combine="rbind") %do% {
         
         #don't do expensive buffer and intersection calculations when not necessary
         if(myAnglers$numberInParty[i+j]==1){
@@ -277,68 +392,19 @@ anglers_place_boat<-function(lakeGeom,
         return(myTmp)
       }
       
-      return(k)
-    }
-    
-    
-    
-    #do the last group which may or may not be partial
-    #create proper number of for loop to do last items
-    #get number of odd items of partial group
-    o=nrow(myAnglers) - (floor(nrow(myAnglers)/parGroupSize)*parGroupSize)
-    i=floor(nrow(myAnglers)/parGroupSize)*parGroupSize
-    l<-foreach(j=1:o, .combine="rbind") %do% {
+      myAnglers2<-rbind(myAnglers2,l)
+      rm(l)
       
-      #don't do expensive buffer and intersection calculations when not necessary
-      if(myAnglers$numberInParty[i+j]==1){
-        myTmp<-myAnglers$geometry[i+j] %>%
-          as.data.frame()  %>%
-          st_as_sf(crs=6343)
-      } else {
-        myTmp<-st_buffer(myAnglers[i+j,], anglerBoatPartyRadius) %>% 
-          st_sample(size=myAnglers[i+j,]$numberInParty) %>%
-          data.frame()%>%
-          st_as_sf(crs=6343)
-      }
-      return(myTmp)
-    }
+    })
     
-    myAnglers2<-rbind(myAnglers2,l)
-    rm(l)  
-    
-    myAnglers2<-myAnglers2 %>%
-      st_as_sf() %>%
-      bind_cols(partyList[rep(1:nrow(partyList), partyList$numberInParty),] %>% 
-                  group_by(simId, partyId) %>% 
-                  mutate(partyAnglerId=row_number()) %>%
-                  ungroup() %>%
-                  mutate(anglerId=row_number()))
-  })
+  myAnglers2<-myAnglers2 %>%
+    st_as_sf() %>%
+    bind_cols(partyList[rep(1:nrow(partyList), partyList$numberInParty),] %>% 
+        group_by(simId, partyId) %>% 
+        mutate(partyAnglerId=row_number()) %>%
+        ungroup() %>%
+        mutate(anglerId=row_number()))
 
-
-    
-# #############################################################
-# ### This method is cleaner...but much slower on large datasets
-# ################################################################
-#     myAnglers_buf<-st_buffer(myAnglers, anglerBoatPartyRadius) %>% 
-#       uncount(numberInParty)
-#     #these have to be separate as the second one calls the results of the first.
-#     #s<-rep(1,nrow(myAnglers_buf))
-#     myAnglers2<- myAnglers_buf %>%
-#       st_drop_geometry() %>%
-#       st_as_sf(geometry=st_sample(myAnglers_buf, size=rep(1,nrow(myAnglers_buf)), type="random", exact=TRUE)) %>%
-#       group_by(simId,partyId) %>% 
-#       mutate(partyAnglerId=row_number()) %>%
-#       ungroup() %>%
-#       mutate(anglerId=row_number()) %>%
-#       st_as_sf() %>%
-#       bind_cols(partyList[rep(1:nrow(partyList), partyList$numberInParty),] %>% 
-#         group_by(simId, partyId) %>% 
-#         mutate(partyAnglerId=row_number()) %>%
-#         ungroup() %>%
-#         mutate(anglerId=row_number()))
-# ######################################################################
-    
   #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
   #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
   myAnglers2[myAnglers2$partyAnglerId==1,]$geometry<-myAnglers$geometry
@@ -354,6 +420,8 @@ anglers_place_boat<-function(lakeGeom,
   
   }
 
+  toc()
+  
     return(myAnglers)
 
 }
@@ -404,6 +472,7 @@ anglers_place<-function(lakeGeom,
   percentBoat<-(100-percentBank)
 
   #create dataset of bank anglers with starting position
+tic.clearlog()
   if(percentBank>0){
     myBankAnglers<-anglers_place_bank(lakeGeom=lakeGeom,
                                       lakeName=lakeName,
@@ -418,7 +487,9 @@ anglers_place<-function(lakeGeom,
                                       numberSims=numberSims,
                                       parGroupSize,
                                       parNumberCores)
-
+log.txt<<-tictoc::tic.log(format=TRUE)
+print(unlist(log.txt))
+tictoc::tic.clearlog()
     # #assign angler method types
     # myBankAnglers<-anglers_assign_method(myBankAnglers, 
     #                                      anglerBankLureProb-50,

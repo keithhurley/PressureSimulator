@@ -11,9 +11,11 @@ myParamsObject<-obj_create_default_parameters_object()
 mySimsObject<-obj_create_default_simulations_object()
 
 #run simulations
+tic("run MyResults")
 myResults<-sims_runSimulations(myLakeObject,
                 myParamsObject,
                 mySimsObject)
+toc()
 
 #save output
   #include runtime

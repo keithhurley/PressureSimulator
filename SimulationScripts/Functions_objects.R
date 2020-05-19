@@ -125,7 +125,7 @@ obj_create_parameters_object<-function(acres,
 obj_create_default_parameters_object<-function(){
   d<-obj_create_parameters_object(
     acres=10,
-    hoursPerAcre=500,
+    hoursPerAcre=1000,
     tripLengthMean=3.4,
     tripLengthSd=1,
     castsPerHourMean=60,

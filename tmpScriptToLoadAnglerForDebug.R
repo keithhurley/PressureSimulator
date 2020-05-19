@@ -1,0 +1,25 @@
+lakeGeom=myLakeObject$lakeGeom
+lakeName=myLakeObject$lakeName
+anglerBoatDistribution = myParamsObject$anglerBoatDistribution
+anglerBankDistribution = myParamsObject$anglerBankDistribution
+anglerBoatPartyRadius = myParamsObject$anglerBoatPartyRadius
+anglerBankPartyRadius = myParamsObject$anglerBankPartyRadius
+totalAnglers = myParamsObject$totalAnglers
+meanPartySizeBoat=myParamsObject$meanPartySizeBoat
+maxPartySizeBoat=myParamsObject$maxPartySizeBoat
+meanPartySizeBank=myParamsObject$meanPartySizeBank
+maxPartySizeBank=myParamsObject$maxPartySizeBank
+boatShorelineBuffer= myParamsObject$boatShorelineBuffer
+percentBank = myParamsObject$percentBank
+mySeed=mySimsObject$seed
+numberSims=mySimsObject$numberSimulations
+parGroupSize=mySimsObject$parGroupSize
+parNumberCores=mySimsObject$parNumberCores
+
+anglerBankRestrictions = NA
+anglerBankProbs= NA
+anglerBoatRestrictions = NA
+anglerBoatProbs= NA
+percentBoat<-(100-percentBank)
+numberAnglers=totalAnglers*(percentBank/100)
+numberAnglers=totalAnglers*(percentBoat/100)
