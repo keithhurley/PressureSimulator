@@ -59,36 +59,42 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=400,
   }
   parties<-parties %>% select(-rowId)
 
-  #add parties to get to total number of anglers
-  # cl<-makeCluster(2, type="PSOCK")
-  # registerDoParallel(cl)
-  
-  parties2<-foreach(i = 1:numberSims,.combine="rbind") %dopar%  {
-    tmpParties<-parties[parties$simId==i,]
-    #calculate how many parties of mean size can be used and add them
-    currentSum<-sum(tmpParties$numberInParty)
-    if (numberAnglers-currentSum>=round(meanPartySize,0)) {
-      numberNeeded=floor((numberAnglers-currentSum)/round(meanPartySize,0))
-      tmpParties<-rbind(tmpParties,
-                     data.frame(simId=i,
-                                partyId=c(seq(from=max(tmpParties$partyId)+1,
-                                              to=max(tmpParties$partyId)+numberNeeded, 
-                                              by=1)),
-                                numberInParty=rep(round(meanPartySize,0),numberNeeded)))
-    } 
+    #add parties to get to total number of anglers
+  cl<-makeCluster(2, type="PSOCK", outfile="")
+  registerDoParallel(cl)
 
-    #if short less than one mean party size...add parties of one until you get there
-    while(sum(tmpParties$numberInParty[tmpParties$simId==i])<numberAnglers){
-      tmpParties<-rbind(tmpParties,
-                     c(simId=i,
-                       partyId=max(tmpParties$partyId)+1,
-                       numberInParty=1))
-    }
+  parties2<-foreach(i = 1:numberSims,.combine="rbind") %dopar%  {
+    require(dplyr)
+print("help me")
+print(parties)
+    tmpParties<-parties[parties$simId==i,]
+    # #calculate how many parties of mean size can be used and add them
+    # currentSum<-sum(tmpParties$numberInParty)
+    # if (numberAnglers-currentSum>=round(meanPartySize,0)) {
+    #   numberNeeded=floor((numberAnglers-currentSum)/round(meanPartySize,0))
+    #   tmpParties<-rbind(tmpParties,
+    #                  data.frame(simId=i,
+    #                             partyId=c(seq(from=max(tmpParties$partyId)+1,
+    #                                           to=max(tmpParties$partyId)+numberNeeded, 
+    #                                           by=1)),
+    #                             numberInParty=rep(round(meanPartySize,0),numberNeeded)))
+    # } 
+    # #if short less than one mean party size...add parties of one until you get there
+    # while(sum(tmpParties$numberInParty[tmpParties$simId==i])<numberAnglers){
+    #   tmpParties<-rbind(tmpParties,
+    #                  c(simId=i,
+    #                    partyId=max(tmpParties$partyId)+1,
+    #                    numberInParty=1))
+    # }
+                      
     return(tmpParties)
   }
   
+stopCluster(cl)
+
   parties<-parties2
   rm(parties2)
+
 
   #renumber parties so they are consecutive
   parties<-parties %>%
@@ -253,6 +259,8 @@ anglers_place_boat<-function(lakeGeom,
     suppressMessages({
       print(paste(getDoParWorkers(), " Cores Will Be Used", sep=""))
       
+      cl<-makeCluster(2, type="PSOCK", outfile="")
+      registerDoParallel(cl)
       
     myAnglers2<-foreach(i=seq(1,floor(nrow(myAnglers)/parGroupSize)*parGroupSize,by=parGroupSize), .combine="rbind") %dopar% {
       
@@ -302,6 +310,8 @@ anglers_place_boat<-function(lakeGeom,
       }
       return(myTmp)
     }
+    
+    stopCluster(cl)
     
     myAnglers2<-rbind(myAnglers2,l)
     rm(l)  
@@ -384,6 +394,8 @@ anglers_place<-function(lakeGeom,
                         meanPartySizeBoat,
                         maxPartySizeBoat,
                         maxPartySizeBank,
+                        bankAnglers,
+                        boatAnglers,
                         anglerBankDistribution="Clustered",
                         anglerBoatDistribution="Clustered",
                         anglerBankPartyRadius,
@@ -407,7 +419,7 @@ anglers_place<-function(lakeGeom,
   if(percentBank>0){
     myBankAnglers<-anglers_place_bank(lakeGeom=lakeGeom,
                                       lakeName=lakeName,
-                                      numberAnglers=totalAnglers*(percentBank/100),
+                                      numberAnglers=bankAnglers,
                                       meanPartySizeBank=meanPartySizeBank,
                                       maxPartySizeBank=maxPartySizeBank,
                                       anglerBankDistribution = anglerBankDistribution,
@@ -430,7 +442,7 @@ anglers_place<-function(lakeGeom,
   #create dataset of boat anglers with starting position
   if(percentBoat>0){
     myBoatAnglers<-anglers_place_boat(lakeGeom=lakeGeom,
-                                      numberAnglers=totalAnglers*(percentBoat/100),
+                                      numberAnglers=boatAnglers,
                                       meanPartySizeBoat=meanPartySizeBoat,
                                       maxPartySizeBoat=maxPartySizeBoat,
                                       anglerBoatDistribution=anglerBoatDistribution,

@@ -303,12 +303,9 @@ server <- function(input, output, session) {
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
-                    print("1")
-                    
+
                     #load lake object
                     myLakeObject<<-obj_create_default_lake_object()
-                    
-                    print("2")
                     
                     #create parameter object
                     myParamsObject<<-obj_create_default_parameters_object()
@@ -317,8 +314,6 @@ server <- function(input, output, session) {
                     mySimsObject<<-obj_create_default_simulations_object()
                     mySimsObject$parGroupSize=input$ipGroupSize
                     mySimsObject$parNumberCores=input$ipNumberCores
-                    
-                    print("3")
                     
                     sims_runSimulations(myLakeObject,
                                                    myParamsObject,
@@ -330,8 +325,7 @@ server <- function(input, output, session) {
                         summarise(Freq=n()) %>%
                         rename("Number Of Interactions"=numInteractions,
                                "Frequency"=Freq)
-                    print("5")
-                    
+
                     #save output
                     #include flag if full run completed?
                     if(input$ipSaveOutputs==TRUE){
