@@ -177,7 +177,7 @@ ui <- fluidPage(
                                                   "Number of simulation runs:",
                                                   min = 1,
                                                   max = 1000,
-                                                  step = 10,
+                                                  step = 1,
                                                   value = 1),
                                       sliderInput("ipNumberOfCores",
                                                   "Number Of Cores:",
@@ -196,7 +196,9 @@ ui <- fluidPage(
                                       conditionalPanel("input.ipSaveOutputs == true",
                                               tags$div(style="background: gainsboro; padding:20px; margin-left:20px; margin-bottom:20px;",
                                                        directoryInput(inputId='directory', label = 'Select a directory:', value = './outputs/'),
-                                                       textInput(inputId="ipSaveName", label="Base name for saved files:", value="delete_me_dev")
+                                                       textInput(inputId="ipSaveName", label="Base name for saved files:", value="delete_me_dev"),
+                                                       textInput(inputId="ipRunName", label="Run Name:", value="Default Run In Shiny"),
+                                                       textInput(inputId="ipRunDescription", label="Description Of Run:", value="This is the default description for a run.")
                                               )
                                         ),
                                       
@@ -214,6 +216,7 @@ ui <- fluidPage(
                                            tags$br(),
                                            tableOutput('TableInteractions')),
                                   tags$div(style="float:left; width:500px; padding-left:50px;",
+                                           textOutput('TextElapsedTime'),
                                            textOutput('TextMeanInteractions'),
                                            tags$br(),
                                            tags$br(),
@@ -305,27 +308,73 @@ server <- function(input, output, session) {
                 {
 
                     #load lake object
-                    myLakeObject<<-obj_create_default_lake_object()
+                    #myLakeObject<<-obj_create_default_lake_object()
+                    myLakeObject<<-obj_create_lake_object(lakeGeom_path = paste("data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""),
+                                                          restrictionsShore_path = ifelse(
+                                                              input$ipShoreRestrictions=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/restrictions/shore/", input$ipShoreRestrictions, sep="")
+                                                              )
+                    )
                     
                     #create parameter object
-                    myParamsObject<<-obj_create_default_parameters_object()
+                    #myParamsObject<<-obj_create_default_parameters_object()
+                    myParamsObject<<-obj_create_parameters_object(
+                        acres=myLakeObject$lakeAcres,
+                        hoursPerAcre=input$ipHoursPerAcre,
+                        tripLengthMean=input$ipTripLengthMean,
+                        tripLengthSd=input$ipTripLengthSd,
+                        castsPerHourMean=input$ipCastsPerHourMean,
+                        castsPerHourSd=input$ipCastsPerHourSd,
+                        castDistanceMean=input$ipCastDistanceMean,
+                        castDistanceSd=input$ipCastDistanceSd,
+                        numberFish=input$ipNumberFish,
+                        fishShorelineBuffer=input$ipFishShorelineBuffer,
+                        anglerBoatDistribution=input$ipAnglerDistributionType,
+                        anglerBankDistribution=input$ipAnglerDistributionType,
+                        anglerBoatPartyRadius=input$ipBoatAnglerPartyClusterRadius,
+                        anglerBankPartyRadius=input$ipBankAnglerPartyClusterRadius,
+                        meanPartySizeBoat=input$ipMeanPartySizeBoat,
+                        maxPartySizeBoat=input$ipMaxPartySizeBoat,
+                        meanPartySizeBank=input$ipMeanPartySizeBank,
+                        maxPartySizeBank=input$ipMaxPartySizeBank,
+                        boatShorelineBuffer=input$ipBoatShorelineBuffer,
+                        percentBank=input$ipPercentBank
+                    )
+                    
                     
                     #create simulations object
-                    mySimsObject<<-obj_create_default_simulations_object()
-                    mySimsObject$parGroupSize=input$ipGroupSize
-                    mySimsObject$parNumberCores=input$ipNumberCores
+                    # mySimsObject<<-obj_create_default_simulations_object()
+                    # mySimsObject$parGroupSize=input$ipGroupSize
+                    # mySimsObject$parNumberCores=input$ipNumberCores
+                    mySimsObject<<-obj_create_simulations_object(
+                        numberSimulations=input$ipNumberSimulations,
+                        runName=input$ipRunName,
+                        runDescription=input$ipRunDescription,
+                        saveNamePath=input$directory,
+                        saveNameBase=input$ipSaveName,
+                        seed=input$ipSeed,
+                        parGroupSize=input$ipGroupSize, #must be at least 3?
+                        parNumberCores=input$ipNumberCores)
                     
-                    sims_runSimulations(myLakeObject,
-                                                   myParamsObject,
-                                                   mySimsObject)
                     
-                    myValues$tblInteractions<-myResults$interactionCounts %>%
+                    myResults<<-sims_runSimulations(myLakeObject,
+                                        myParamsObject,
+                                        mySimsObject)
+                    
+                    myValues$tblInteractions<<-myResults$interactionCounts %>%
                         filter(simId==1) %>%
                         group_by(numInteractions) %>%
                         summarise(Freq=n()) %>%
                         rename("Number Of Interactions"=numInteractions,
                                "Frequency"=Freq)
 
+                    
+                    myValues$meanInteractionsPerFish<-round(myResults$myFish %>%
+                                                                summarise(myMean=mean(InteractionsMean, na.rm=TRUE)),1)
+                    
+                    myValues$timings$ElapsedTime = myResults$timings$ElapsedTime
+                    
                     #save output
                     #include flag if full run completed?
                     if(input$ipSaveOutputs==TRUE){
@@ -347,23 +396,24 @@ server <- function(input, output, session) {
         output$TableInteractions=renderText({})
         output$TableInteractions=renderTable({myValues$tblInteractions})
         
-        output$PlotInteractions=renderPlot({ggplot(data=myResults$interactionCounts %>% 
-                                                       filter(simId==1) %>%
-                                                       group_by(numInteractions) %>%
-                                                       summarise(Freq=n())) +
-                                            geom_bar(aes(x=numInteractions, y=Freq, fill=numInteractions),
+        output$PlotInteractions=renderPlot({ggplot(data=myValues$tblInteractions)  +
+                                            geom_bar(aes(x=`Number Of Interactions`, y=Frequency, fill=`Number Of Interactions`),
                                                      stat="identity") +
                  labs(x="Number Of Interactions", y="Frequency", title="Fish/Angler Interactions") +
                                              scale_fill_viridis_c(direction=-1) +
-             scale_y_continuous(limits=c(0,max(myResults$interactionCounts$numInteractions)+20)) +
-             scale_x_continuous(limits=c(-1,max(as.numeric(as.character(myResults$interactionCounts$numInteractions)))))+
+             #scale_y_continuous(limits=c(0,max(myValues$tblInteractions$numInteractions)+20)) +
+             #scale_x_continuous(limits=c(-1,max(as.numeric(as.character(myValues$tblInteractions$numInteractions)))))+
                                              theme_bw() +
                                              theme(legend.position="none")
-             })
+        })
+          
+        output$TextMeanInteractions=renderText({paste("Mean Interactions Per Fish: ",
+                                                      myValues$meanInteractionsPerFish, sep="")})
         
-        output$TextMeanInteractions=renderText(paste("Mean Interactions Per Fish: ",
-                                                    round(myResults$myFish %>%
-                                                              summarise(myMean=mean(InteractionsMean, na.rm=TRUE)),1), sep=""))
+        output$TextElapsedTime=renderText(paste("Elapsed Time: ", 
+                                                myValues$timings$ElapsedTime,
+                                                " minutes", sep=""))
+        
 }
 
 # Run the application 

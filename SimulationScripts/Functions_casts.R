@@ -58,7 +58,7 @@ casts_create_splashdown_coords<-function(lakeGeom, myCasts_coords, castDistanceM
   
   while (any(myCasts_coords$valid==FALSE)) {
     
-    print("Running Another Round Of Casts...")
+    # print("Running Another Round Of Casts...")
     
     myCasts_coords$dir[myCasts_coords$valid==FALSE]<-apply(myCasts_coords[myCasts_coords$valid==FALSE,],1,function(x) casts_create_random_cast_params_direction())
     myCasts_coords$dist[myCasts_coords$valid==FALSE]<-apply(myCasts_coords[myCasts_coords$valid==FALSE,],1,function(x) casts_create_random_cast_params_distance(castDistanceMean=castDistanceMean,
@@ -73,7 +73,7 @@ casts_create_splashdown_coords<-function(lakeGeom, myCasts_coords, castDistanceM
       st_as_sf(coords = c("splash_X", "splash_Y"), 
                crs = 6343) 
     myCasts_coords$valid[myCasts_coords$valid==FALSE]<-as.vector(as.matrix(st_intersects(myCasts_temp, lakeGeom)))
-    print(sum(myCasts_coords$valid==FALSE))
+    # print(sum(myCasts_coords$valid==FALSE))
     }
 
   return(myCasts_coords)

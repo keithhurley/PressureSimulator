@@ -8,6 +8,7 @@
   #library(profvis)
   library(foreach)
   library(doParallel)
+  library(doRNG)
   
   
   source("./SimulationScripts/Functions_angler.R")

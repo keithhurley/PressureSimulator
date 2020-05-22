@@ -4,12 +4,12 @@
 #  1) random - assumes single angler party
 #  2) clustered - clusters by party size
 
-anglers_distributeAnglersIntoParties<-function(numberAnglers=400,
+anglers_distributeAnglersIntoParties<-function(numberAnglers=133,
                                   meanPartySize=2,
                                   maxPartySize=4,
                                   mySeed,
                                   numberSims=3000){
-
+tic()
   #set seed
   set.seed(round(mySeed*55,0))
   
@@ -59,49 +59,60 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=400,
   }
   parties<-parties %>% select(-rowId)
 
-    #add parties to get to total number of anglers
+  #add parties to get to total number of anglers
+
+  suppressMessages({
+  print(paste(getDoParWorkers(), " Cores Will Be Used For Creating Parties", sep=""))
+    
   cl<-makeCluster(2, type="PSOCK", outfile="")
   registerDoParallel(cl)
-
+  registerDoRNG(round(mySeed*165,0))
+  
+  #sort so they can resort following dopar
+  parties<-parties %>% arrange(simId, partyId)
+  
   parties2<-foreach(i = 1:numberSims,.combine="rbind") %dopar%  {
     require(dplyr)
-print("help me")
-print(parties)
+
     tmpParties<-parties[parties$simId==i,]
-    # #calculate how many parties of mean size can be used and add them
-    # currentSum<-sum(tmpParties$numberInParty)
-    # if (numberAnglers-currentSum>=round(meanPartySize,0)) {
-    #   numberNeeded=floor((numberAnglers-currentSum)/round(meanPartySize,0))
-    #   tmpParties<-rbind(tmpParties,
-    #                  data.frame(simId=i,
-    #                             partyId=c(seq(from=max(tmpParties$partyId)+1,
-    #                                           to=max(tmpParties$partyId)+numberNeeded, 
-    #                                           by=1)),
-    #                             numberInParty=rep(round(meanPartySize,0),numberNeeded)))
-    # } 
-    # #if short less than one mean party size...add parties of one until you get there
-    # while(sum(tmpParties$numberInParty[tmpParties$simId==i])<numberAnglers){
-    #   tmpParties<-rbind(tmpParties,
-    #                  c(simId=i,
-    #                    partyId=max(tmpParties$partyId)+1,
-    #                    numberInParty=1))
-    # }
+    #calculate how many parties of mean size can be used and add them
+    currentSum<-sum(tmpParties$numberInParty)
+    if (numberAnglers-currentSum>=round(meanPartySize,0)) {
+      numberNeeded=floor((numberAnglers-currentSum)/round(meanPartySize,0))
+      tmpParties<-rbind(tmpParties,
+                     data.frame(simId=i,
+                                partyId=c(seq(from=max(tmpParties$partyId)+1,
+                                              to=max(tmpParties$partyId)+numberNeeded,
+                                              by=1)),
+                                numberInParty=rep(round(meanPartySize,0),numberNeeded)))
+    }
+    #if short less than one mean party size...add parties of one until you get there
+    while(sum(tmpParties$numberInParty[tmpParties$simId==i])<numberAnglers){
+      tmpParties<-rbind(tmpParties,
+                     c(simId=i,
+                       partyId=max(tmpParties$partyId)+1,
+                       numberInParty=1))
+    }
                       
     return(tmpParties)
   }
   
 stopCluster(cl)
-
+})
+  
   parties<-parties2
   rm(parties2)
-
-
+  
+  #sort following dopar
+  parties<-parties %>% arrange(simId, partyId)
+  
   #renumber parties so they are consecutive
   parties<-parties %>%
     select(-partyId) %>% 
     group_by(simId) %>%
     mutate(partyId=row_number())
   
+  toc() numberSims=3000
   return(parties)
 }
 
@@ -124,7 +135,8 @@ anglers_place_bank<-function(lakeGeom,
   #set seed
   set.seed(round(mySeed*0.5475/0.213234,0))
   
-  
+  suppressMessages({  
+    
   #convert lake polygon to a linestring to get just bank
   if (anglerBankRestrictions == "None" | is.na(anglerBankRestrictions)) {
     lakeGeom_line<-lakeGeom %>% 
@@ -133,18 +145,21 @@ anglers_place_bank<-function(lakeGeom,
   else {
     load(file=paste("../data/lakes/",lakeName,"/restrictions/shore/",anglerBankRestrictions, sep=""))
     lakeGeom_line<-lake_restrictions_shore %>%
-      st_cast("LINESTRING")
+      st_cast("LINESTRING", warn=FALSE)
     rm(lake_restrictions_shore)
   }
   
+  
+
+    
   if (anglerBankDistribution=="Random") {
     
     myAnglers<-lakeGeom_line %>% 
       st_line_sample(n=as.integer(numberAnglers)*numberSims, type="random")
     
-    myAnglers<-myAnglers %>% st_cast("POINT")
+    myAnglers<-myAnglers %>% st_cast("POINT", warn=FALSE)
     myAnglers<-st_set_crs(myAnglers, 6343)
-    myAnglers<-st_cast(myAnglers) %>%
+    myAnglers<-st_cast(myAnglers, warn=FALSE) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
       mutate(simId=sort(rep(1:numberSims, numberAnglers))) %>%
@@ -161,11 +176,10 @@ anglers_place_bank<-function(lakeGeom,
                                                     maxPartySize = maxPartySizeBank,
                                                     mySeed=mySeed,
                                                     numberSims=numberSims)
-    
     #get random points for each bank party
     myAnglers<-lakeGeom_line %>% 
       st_line_sample(n=nrow(partyList), type="random") %>% 
-      st_cast("POINT") %>%
+      st_cast("POINT", warn=FALSE) %>%
       st_set_crs(6343) %>% 
       st_cast() %>%
       as.data.frame() %>%
@@ -174,18 +188,19 @@ anglers_place_bank<-function(lakeGeom,
     
     #alter row location so subsequent anglers in a party have a different location
     #...within a buffered circle (i.e. a boat)
-    
     myAnglers_buf<-st_buffer(myAnglers, anglerBankPartyRadius * ifelse(myAnglers$numberInParty-1==0, 1, myAnglers$numberInParty))  
-    myAnglers_segment<-st_intersection(myAnglers_buf, lakeGeom_line) %>% st_cast("LINESTRING")
-    myAnglers2<-myAnglers %>% 
+
+    suppressWarnings(myAnglers_segment<-st_intersection(myAnglers_buf, lakeGeom_line) %>% 
+      st_cast("LINESTRING", warn=FALSE))
+
+myAnglers2<-myAnglers %>% 
       st_drop_geometry() %>% 
       st_as_sf(geometry=st_line_sample(myAnglers_segment, n=myAnglers$numberInParty)) %>% 
-      st_cast("POINT") %>%
+      st_cast("POINT", warn=FALSE) %>%
       group_by(simId,partyId) %>% 
       mutate(partyAnglerId=row_number()) %>%
       ungroup() %>%
       mutate(anglerId=row_number())
-    
     #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
     #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
     myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$geometry
@@ -194,13 +209,14 @@ anglers_place_bank<-function(lakeGeom,
     #   geom_sf(data=lakeGeom)+
     #   geom_sf(data=st_buffer(myAnglers[myAnglers$partyId==22,] %>% filter(partyAnglerId==1),12), fill="red", alpha=.5, color="red") +
     #   geom_sf(data=myAnglers[myAnglers$partyId==22,], size=1)
-    
     myAnglers<-myAnglers2
     rm(myAnglers2)
     myAnglers$anglerType="Bank"
     
 
   }
+  
+  })
   
   return(myAnglers)
 }
@@ -257,10 +273,11 @@ anglers_place_boat<-function(lakeGeom,
   #alter row location so subsequent anglers in a party have a different location
   #...within a buffered circle (i.e. a boat)
     suppressMessages({
-      print(paste(getDoParWorkers(), " Cores Will Be Used", sep=""))
+      print(paste(getDoParWorkers(), " Cores Will Be Used For Placing Boat Anglers", sep=""))
       
       cl<-makeCluster(2, type="PSOCK", outfile="")
       registerDoParallel(cl)
+      registerDoRNG(round(mySeed*412,0))
       
     myAnglers2<-foreach(i=seq(1,floor(nrow(myAnglers)/parGroupSize)*parGroupSize,by=parGroupSize), .combine="rbind") %dopar% {
       
