@@ -4,11 +4,11 @@
 #  1) random - assumes single angler party
 #  2) clustered - clusters by party size
 
-anglers_distributeAnglersIntoParties<-function(numberAnglers=133,
+anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
                                   meanPartySize=2,
                                   maxPartySize=4,
                                   mySeed,
-                                  numberSims=3000){
+                                  numberSims=500){
 tic()
   #set seed
   set.seed(round(mySeed*55,0))
@@ -64,7 +64,7 @@ tic()
   suppressMessages({
   print(paste(getDoParWorkers(), " Cores Will Be Used For Creating Parties", sep=""))
     
-  cl<-makeCluster(2, type="PSOCK", outfile="")
+  cl<-makeCluster(4, type="PSOCK", outfile="")
   registerDoParallel(cl)
   registerDoRNG(round(mySeed*165,0))
   
@@ -112,7 +112,8 @@ stopCluster(cl)
     group_by(simId) %>%
     mutate(partyId=row_number())
   
-  toc() numberSims=3000
+  toc() 
+  #numberSims=3000
   return(parties)
 }
 
@@ -275,7 +276,7 @@ anglers_place_boat<-function(lakeGeom,
     suppressMessages({
       print(paste(getDoParWorkers(), " Cores Will Be Used For Placing Boat Anglers", sep=""))
       
-      cl<-makeCluster(2, type="PSOCK", outfile="")
+      cl<-makeCluster(4, type="PSOCK", outfile="")
       registerDoParallel(cl)
       registerDoRNG(round(mySeed*412,0))
       
