@@ -355,7 +355,7 @@ server <- function(input, output, session) {
                         saveNameBase=input$ipSaveName,
                         seed=input$ipSeed,
                         parGroupSize=input$ipGroupSize, #must be at least 3?
-                        parNumberCores=input$ipNumberCores)
+                        parNumberCores=input$ipNumberOfCores)
                     
                     
                     myResults<<-sims_runSimulations(myLakeObject,
