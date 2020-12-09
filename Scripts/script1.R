@@ -17,6 +17,9 @@ myResults<-sims_runSimulations(myLakeObject,
                 mySimsObject)
 toc()
 
+myResults$interactionCounts
+
+
 #save output
   #include runtime
   #include flag if full run completed?
@@ -28,7 +31,6 @@ save_simulation_run(fileNameAndPath=paste(mySimsObject$saveNamePath,
                     myParamsObject,
                     mySimsObject,
                     myResults)
-
 
 
 

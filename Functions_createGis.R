@@ -10,8 +10,8 @@ mapsToMake=data.frame(acres=c(1,5,10,50,100,1000),
              radius=c(35.89088388448,80.254456138,113.4969403113, 
                       253.7868737742,358.9088388438,1134.9890349188))
 
-load(file="myPoint")
-d<-myPoint
+load(file="./Misc/myPoint")
+d<-myPoint_fixed
 #d<- st_sfc(st_geometrycollection(list(st_point(c(41.239611, -96.649833)))))
 #d<-st_set_crs(d, 3857)#4326)
 d<-st_transform(d,6343)
@@ -27,7 +27,7 @@ foreach(i=1:nrow(mapsToMake)) %do% {
   lake<-st_as_sf(data.frame(st_buffer(d, mapsToMake$radius[i])))
   #lake<-st_set_crs(lake,6343)
   lake$name<-paste("round_", mapsToMake$acres[i], sep="")
-  save(lake, file=paste("./data/lakes/round_",mapsToMake$acres[i], "/lake.rData",sep=""))
+  #save(lake, file=paste("./data/lakes/round_",mapsToMake$acres[i], "/lake.rData",sep=""))
 }
 
 st_write(lake, dsn = '.', layer = 'round_1', driver = 'ESRI Shapefile')
@@ -120,7 +120,7 @@ myLakes<-foreach(i=seq(10,90,10), .combine="rbind") %do% {
   return(lake_restrictions_shore)
 }
 
-ggplot(myLakes) +
+ggplot(myLakes[3,]) +
   geom_sf() +
   geom_sf(data=myBreakPoints)+
   facet_wrap(~name)

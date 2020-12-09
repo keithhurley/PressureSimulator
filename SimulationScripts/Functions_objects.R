@@ -7,8 +7,8 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
                              restrictionsBoat_path=NA,
                              probsShore_path=NA,
                              probsBoat_path=NA){
-  
-  if (is.na(lake_object)) {
+
+    if (is.na(lake_object)) {
     myLake<-list()
     myLake$lakeGeom=NA
     myLake$lakeName=NA
@@ -61,7 +61,10 @@ obj_create_default_lake_object<-function(){
   return(d)
 }
 
-
+# obj_create_default_lake_object<-function(){
+#   d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData")
+#   return(d)
+# }
 # parameters object -------------------------------------------------------
 
 #create parameter object

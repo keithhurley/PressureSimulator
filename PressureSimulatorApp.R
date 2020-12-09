@@ -306,7 +306,6 @@ server <- function(input, output, session) {
     #run Simulations
     SimsResult<-eventReactive(input$doSims,
                 {
-
                     #load lake object
                     #myLakeObject<<-obj_create_default_lake_object()
                     myLakeObject<<-obj_create_lake_object(lakeGeom_path = paste("data/lakes/", input$ipLakeGeom, "/lake.rData", sep=""),
@@ -316,7 +315,10 @@ server <- function(input, output, session) {
                                                               paste("./data/lakes/", input$ipLakeGeom, "/restrictions/shore/", input$ipShoreRestrictions, sep="")
                                                               )
                     )
-                    
+                    # ggplot() +
+                    #     geom_sf(data=myLakeObject$lakeGeom, color="blue") +
+                    #     geom_sf(data=myLakeObject$restrictionsShore, color="red")
+
                     #create parameter object
                     #myParamsObject<<-obj_create_default_parameters_object()
                     myParamsObject<<-obj_create_parameters_object(
@@ -342,7 +344,7 @@ server <- function(input, output, session) {
                         percentBank=input$ipPercentBank
                     )
                     
-                    
+
                     #create simulations object
                     # mySimsObject<<-obj_create_default_simulations_object()
                     # mySimsObject$parGroupSize=input$ipGroupSize
@@ -356,7 +358,6 @@ server <- function(input, output, session) {
                         seed=input$ipSeed,
                         parGroupSize=input$ipGroupSize, #must be at least 3?
                         parNumberCores=input$ipNumberOfCores)
-                    
                     
                     myResults<<-sims_runSimulations(myLakeObject,
                                         myParamsObject,

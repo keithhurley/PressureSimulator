@@ -135,17 +135,21 @@ anglers_place_bank<-function(lakeGeom,
   set.seed(round(mySeed*0.5475/0.213234,0))
   
   suppressMessages({  
-    
   #convert lake polygon to a linestring to get just bank
-  if (anglerBankRestrictions == "None" | is.na(anglerBankRestrictions)) {
-    lakeGeom_line<-lakeGeom %>% 
+  #if (anglerBankRestrictions == "None" | is.na(anglerBankRestrictions)) {
+  if (is.na(anglerBankRestrictions)) {
+      
+      lakeGeom_line<-lakeGeom %>% 
       st_cast("LINESTRING", warn=FALSE)
   }
   else {
-    load(file=paste("../data/lakes/",lakeName,"/restrictions/shore/",anglerBankRestrictions, sep=""))
-    lakeGeom_line<-lake_restrictions_shore %>%
+    # load(file=paste("../data/lakes/",lakeName,"/restrictions/shore/",anglerBankRestrictions, sep=""))
+    # lakeGeom_line<-lake_restrictions_shore %>%
+    #   st_cast("LINESTRING", warn=FALSE)
+    # rm(lake_restrictions_shore)
+    
+    lakeGeom_line<-anglerBankRestrictions %>%
       st_cast("LINESTRING", warn=FALSE)
-    rm(lake_restrictions_shore)
   }
   
   
