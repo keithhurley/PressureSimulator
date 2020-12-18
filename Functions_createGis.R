@@ -27,7 +27,8 @@ foreach(i=1:nrow(mapsToMake)) %do% {
   lake<-st_as_sf(data.frame(st_buffer(d, mapsToMake$radius[i])))
   #lake<-st_set_crs(lake,6343)
   lake$name<-paste("round_", mapsToMake$acres[i], sep="")
-  #save(lake, file=paste("./data/lakes/round_",mapsToMake$acres[i], "/lake.rData",sep=""))
+  save(lake, file=paste("./data/lakes/round_",mapsToMake$acres[i], "/lake.rData",sep=""))
+  st_write(lake, dsn=paste("./data/lakes/round_", mapsToMake$acres[i], sep=""), driver='ESRI Shapefile')
 }
 
 st_write(lake, dsn = '.', layer = 'round_1', driver = 'ESRI Shapefile')
@@ -147,7 +148,7 @@ createShorelineProbs<-function(myLakes=c("round_1"),#, "round_5", "round_10", "r
     lake_restrictions_shore<-st_set_crs(lake_restrictions_shore,6343)
     lake_restrictions_shore$prob=2
     ggplot(lake_restrictions_shore) + geom_sf() + geom_sf(data=myBreakPoints)
-    save(lake_restrictions_shore, file=paste("./data/lakes/", myLakeName,"/restrictions/shore/", "90", "percent.rData", sep=""))
+    #save(lake_restrictions_shore, file=paste("./data/lakes/", myLakeName,"/restrictions/shore/", "90", "percent.rData", sep=""))
     
     #do rest of segments
     myLevel=0

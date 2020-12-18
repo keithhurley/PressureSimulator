@@ -27,19 +27,19 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
     myLake$lakeAcres=as.numeric(round(st_area(lake)/4046.86,1))
     rm(lake)
   }
-  
+
   if (!is.na(restrictionsShore_path)) {
     load(file=restrictionsShore_path)
     myLake$restrictionsShore<-lake_restrictions_shore
     rm(lake_restrictions_shore)
   }
-  
+
   if (!is.na(restrictionsBoat_path)) {
     load(file=restrictionsBoat_path)
-    myLake$restrictionsBoat<-lake_restictions_boat
-    rm(lake_restictions_boat)
+    myLake$restrictionsBoat<-lake_restrictions_boat
+    rm(lake_restrictions_boat)
   }
-  
+
   if (!is.na(probsShore_path)) {
     load(file=probsShore_path)
     myLake$probsShore<-lake_probs_shore
@@ -57,7 +57,10 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
 
 obj_create_default_lake_object<-function(){
   d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
-                        restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/70percent.rData")
+                        restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/ShoreRestrictions.rData",
+                        probsShore_path = "./data/lakes/round_1/probs/shore/ShoreProbs.rData",
+                        restrictionsBoat_path = "./data/lakes/round_1/restrictions/lake/BoatRestrictions.rData",
+                        probsBoat_path = "./data/lakes/round_1/probs/lake/BoatProbs.rData")
   return(d)
 }
 

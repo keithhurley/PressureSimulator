@@ -31,9 +31,12 @@ ui <- fluidPage(
                                                   'Select A Lake',
                                                   choice = list.dirs(path='./data/lakes/',recursive=FALSE, full.names = FALSE)
                                                   ),
-                                      uiOutput("restrictionSelection")
-                                      )
-                                      ),
+                                      uiOutput("restrictionShoreSelection"),
+                                      uiOutput("restrictionLakeSelection"),
+                                      uiOutput("probShoreSelection"),
+                                      uiOutput("probLakeSelection")
+                )
+                ),
                              tabPanel("Anglers",
                                       selectInput("ipAnglerDistributionType",
                                                   "Distribution Type",
@@ -269,11 +272,29 @@ server <- function(input, output, session) {
                      rm(lake)
                  })
     
-    output$restrictionSelection <- renderUI({
+    output$restrictionShoreSelection <- renderUI({
         selectInput("ipShoreRestrictions", 
                     "Select A Shoreline Restriction: ",
                     choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/restrictions/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
                     })
+    
+    output$restrictionLakeSelection <- renderUI({
+        selectInput("ipLakeRestrictions", 
+                    "Select A Lake Restriction: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/restrictions/lake/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+    })
+    
+    output$probShoreSelection <- renderUI({
+        selectInput("ipShoreRestrictions", 
+                    "Select A Shoreline Probability Map: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/probs/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+    })
+    
+    output$probLakeSelection <- renderUI({
+        selectInput("ipShoreRestrictions", 
+                    "Select A Lake Probability Map: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/probs/lake/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+    })
     
     output$opLakeName=renderText(myValues$lakeName)
     

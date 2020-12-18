@@ -135,26 +135,21 @@ anglers_place_bank<-function(lakeGeom,
   set.seed(round(mySeed*0.5475/0.213234,0))
   
   suppressMessages({  
+    
+    
   #convert lake polygon to a linestring to get just bank
-  #if (anglerBankRestrictions == "None" | is.na(anglerBankRestrictions)) {
-  if (is.na(anglerBankRestrictions)) {
-      
-      lakeGeom_line<-lakeGeom %>% 
-      st_cast("LINESTRING", warn=FALSE)
-  }
-  else {
-    # load(file=paste("../data/lakes/",lakeName,"/restrictions/shore/",anglerBankRestrictions, sep=""))
-    # lakeGeom_line<-lake_restrictions_shore %>%
-    #   st_cast("LINESTRING", warn=FALSE)
-    # rm(lake_restrictions_shore)
-    
-    lakeGeom_line<-anglerBankRestrictions %>%
-      st_cast("LINESTRING", warn=FALSE)
-  }
+  lakeGeom_line<-lakeGeom %>% 
+    st_cast("LINESTRING", warn=FALSE)
+        
+  #remove shoreline areas in restriction
+  ggplot() + 
+    geom_sf(data=lakeGeom_line) #+ 
+    #geom_sf(data=anglerBankRestrictions) 
   
-  
+  lakeGeom_line <- lakeGeom_line %>%
+    st_difference(anglerBankRestrictions)[1]
 
-    
+  #place anglers
   if (anglerBankDistribution=="Random") {
     
     myAnglers<-lakeGeom_line %>% 
@@ -187,7 +182,7 @@ anglers_place_bank<-function(lakeGeom,
       st_set_crs(6343) %>% 
       st_cast() %>%
       as.data.frame() %>%
-      st_as_sf(crs = 6343) %>%
+      st_as_sf(crs = 6343) %>% unique() %>%
       bind_cols(partyList) 
     
     #alter row location so subsequent anglers in a party have a different location
