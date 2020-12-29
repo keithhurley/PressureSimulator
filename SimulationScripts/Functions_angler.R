@@ -142,17 +142,24 @@ anglers_place_bank<-function(lakeGeom,
     st_cast("LINESTRING", warn=FALSE)
         
   #remove shoreline areas in restriction
-  ggplot() + 
-    geom_sf(data=lakeGeom_line) #+ 
-    #geom_sf(data=anglerBankRestrictions) 
+  lakeGeom_line2 <- lakeGeom_line %>%
+    st_difference(anglerBankRestrictions) #%>%
+    #st_cast("LINESTRING", warn=FALSE) %>%
+    #st_combine()
   
-  lakeGeom_line <- lakeGeom_line %>%
-    st_difference(anglerBankRestrictions)[1]
+  lakeGeom_line2<-st_cast(st_combine(st_cast(lakeGeom_line2, "MULTIPOINT")), "LINESTRING")
+  
+  
+
+  ggplot() + 
+    #geom_sf(data=anglerBankRestrictions, alpha=0.3) +
+    #geom_sf(data=lakeGeom_line) + 
+    geom_sf(data=lakeGeom_line2, color="red", size=2) 
 
   #place anglers
   if (anglerBankDistribution=="Random") {
     
-    myAnglers<-lakeGeom_line %>% 
+    myAnglers<-lakeGeom_line2 %>% 
       st_line_sample(n=as.integer(numberAnglers)*numberSims, type="random")
     
     myAnglers<-myAnglers %>% st_cast("POINT", warn=FALSE)
@@ -212,7 +219,7 @@ myAnglers2<-myAnglers %>%
     rm(myAnglers2)
     myAnglers$anglerType="Bank"
     
-
+ggplot() + geom_sf(data=lakeGeom_line)
   }
   
   })

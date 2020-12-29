@@ -57,8 +57,8 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
 
 obj_create_default_lake_object<-function(){
   d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
-                        restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/ShoreRestrictions.rData",
-                        probsShore_path = "./data/lakes/round_1/probs/shore/ShoreProbs.rData",
+                        restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/Shore_Restrictions.rData",
+                        probsShore_path = "./data/lakes/round_1/probs/shore/OverlappingProbs.rData",
                         restrictionsBoat_path = "./data/lakes/round_1/restrictions/lake/BoatRestrictions.rData",
                         probsBoat_path = "./data/lakes/round_1/probs/lake/BoatProbs.rData")
   return(d)
