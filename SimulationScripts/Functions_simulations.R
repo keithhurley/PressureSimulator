@@ -14,8 +14,7 @@ sims_runSimulations<-function(myLakeObject,
                             fishShorelineBuffer = myParamsObject$fishShorelineBuffer,
                             mySeed=mySimsObject$seed)
 
-  myResults$myAnglers<-anglers_place(lakeGeom=myLakeObject$lakeGeom,
-                           lakeName=myLakeObject$lakeName,
+  myResults$myAnglers<-anglers_place(myLakeObject=myLakeObject,
                            anglerBoatDistribution = myParamsObject$anglerBoatDistribution,
                            anglerBankDistribution = myParamsObject$anglerBankDistribution,
                            anglerBoatPartyRadius = myParamsObject$anglerBoatPartyRadius,

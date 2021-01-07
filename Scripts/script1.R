@@ -12,9 +12,9 @@ mySimsObject<-obj_create_default_simulations_object()
 
 #run simulations
 tic("run MyResults")
-myResults<-sims_runSimulations(myLakeObject,
-                myParamsObject,
-                mySimsObject)
+myResults<-sims_runSimulations(myLakeObject=myLakeObject,
+                myParamsObject=myParamsObject,
+                mySimsObject=mySimsObject)
 toc()
 
 myResults$interactionCounts

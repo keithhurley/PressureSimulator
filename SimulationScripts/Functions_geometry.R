@@ -3,10 +3,11 @@
 ##  arguements:
 ##      myLakeObject  the lake object used for the current simulation
 
-geo_createLakeSegments<-function(myLakeObject){
+geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
   
   a<-myLakeObject$lakeGeom %>%
-    st_cast("POLYGON", warn=FALSE) 
+    st_cast("POLYGON", warn=FALSE) %>% 
+    st_buffer((-1*myBoatShorelineBuffer))
   
   if(any(!is.na(myLakeObject$restrictionsBoat))){
     
@@ -112,9 +113,6 @@ geo_sampleLakePoints<-function(mySegments, totalPoints, mySeed){
   
   return(a)
 }
-
-
-
 
 
 
@@ -227,12 +225,12 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
   a<-mySegments %>% 
     left_join(a, by=c("segmentID")) %>%
     st_sample(size=.$numberOfPoints)  %>%
-    st_cast("POINT")
+    st_cast("POINT") %>%
+    st_as_sf(crs=6343)
   
   return(a)
 }
 
- 
 
 
 

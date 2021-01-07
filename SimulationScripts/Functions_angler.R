@@ -116,8 +116,7 @@ stopCluster(cl)
 }
 
 
-anglers_place_bank<-function(lakeGeom,
-                             lakeName, 
+anglers_place_bank<-function(myLakeObject,
                              numberAnglers,
                              meanPartySizeBank,
                              maxPartySizeBank,
@@ -136,35 +135,19 @@ anglers_place_bank<-function(lakeGeom,
   
   suppressMessages({  
     
-    
-  #convert lake polygon to a linestring to get just bank
-  lakeGeom_line<-lakeGeom %>% 
-    st_cast("LINESTRING", warn=FALSE)
-        
-  #remove shoreline areas in restriction
-  lakeGeom_line2 <- lakeGeom_line %>%
-    st_difference(anglerBankRestrictions) #%>%
-    #st_cast("LINESTRING", warn=FALSE) %>%
-    #st_combine()
-  
-  lakeGeom_line2<-st_cast(st_combine(st_cast(lakeGeom_line2, "MULTIPOINT")), "LINESTRING")
-  
-  
 
-  ggplot() + 
-    #geom_sf(data=anglerBankRestrictions, alpha=0.3) +
-    #geom_sf(data=lakeGeom_line) + 
-    geom_sf(data=lakeGeom_line2, color="red", size=2) 
+    
+  #prepare lake segments
+  #get lake segments for selections
+  myShorelineSegments<-geo_createShorelineSegments(myLakeObject)  
 
   #place anglers
   if (anglerBankDistribution=="Random") {
     
-    myAnglers<-lakeGeom_line2 %>% 
-      st_line_sample(n=as.integer(numberAnglers)*numberSims, type="random")
+    myAnglers<-geo_sampleShorelinePoints(myShorelineSegments, totalPoints = as.integer(numberAnglers)*numberSims, mySeed)
     
-    myAnglers<-myAnglers %>% st_cast("POINT", warn=FALSE)
-    myAnglers<-st_set_crs(myAnglers, 6343)
-    myAnglers<-st_cast(myAnglers, warn=FALSE) %>%
+    myAnglers<-myAnglers %>%
+      #st_cast(myAnglers, warn=FALSE) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
       mutate(simId=sort(rep(1:numberSims, numberAnglers))) %>%
@@ -183,20 +166,22 @@ anglers_place_bank<-function(lakeGeom,
                                                     numberSims=numberSims,
                                                     parNumberCores = parNumberCores)
     #get random points for each bank party
-    myAnglers<-lakeGeom_line %>% 
-      st_line_sample(n=nrow(partyList), type="random") %>% 
-      st_cast("POINT", warn=FALSE) %>%
-      st_set_crs(6343) %>% 
-      st_cast() %>%
-      as.data.frame() %>%
-      st_as_sf(crs = 6343) %>% unique() %>%
+    myAnglers<-geo_sampleShorelinePoints(mySegments=myShorelineSegments, 
+                                         totalPoints = nrow(partyList), 
+                                         mySeed=mySeed) %>%
+      #st_cast() %>%
+      #as.data.frame() %>%
+      #st_as_sf(crs = 6343) %>% unique() %>%
       bind_cols(partyList) 
     
     #alter row location so subsequent anglers in a party have a different location
     #...within a buffered circle (i.e. a boat)
     myAnglers_buf<-st_buffer(myAnglers, anglerBankPartyRadius * ifelse(myAnglers$numberInParty-1==0, 1, myAnglers$numberInParty))  
 
-    suppressWarnings(myAnglers_segment<-st_intersection(myAnglers_buf, lakeGeom_line) %>% 
+    #create linestring of shoreline minus restrictions
+    myShoreline=st_union(myShorelineSegments)
+    
+    suppressWarnings(myAnglers_segment<-st_intersection(myAnglers_buf, myShoreline) %>% 
       st_cast("LINESTRING", warn=FALSE))
 
 myAnglers2<-myAnglers %>% 
@@ -219,16 +204,14 @@ myAnglers2<-myAnglers %>%
     rm(myAnglers2)
     myAnglers$anglerType="Bank"
     
-ggplot() + geom_sf(data=lakeGeom_line)
   }
-  
   })
   
   return(myAnglers)
 }
 
 
-anglers_place_boat<-function(lakeGeom,
+anglers_place_boat<-function(myLakeObject,
                              numberAnglers,
                              meanPartySizeBoat,
                              maxPartySizeBoat,
@@ -244,9 +227,16 @@ anglers_place_boat<-function(lakeGeom,
   
   #set seed
   set.seed(round(mySeed*0.356/0.85324,0))
+
   
+  #prepare lake segments
+  #get lake segments for selections
+  if (is.na(anglerBoatPartyRadius)==FALSE & anglerBoatPartyRadius>boatShorelineBuffer) {boatShorelineBuffer=anglerBoatPartyRadius}
+  myLakeSegments<-geo_createLakeSegments(myLakeObject, boatShorelineBuffer)
+  
+    
   if (anglerBoatDistribution=="Random") {
-    myAnglers<-st_sample(st_buffer(lakeGeom, (-1*boatShorelineBuffer)), size=as.integer(numberAnglers)*numberSims) %>%
+    myAnglers<-geo_sampleLakePoints(myLakeSegments, totalPoints=(numberAnglers)*numberSims, mySeed) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
       mutate(simId=sort(rep(1:numberSims, numberAnglers))) %>%
@@ -268,16 +258,14 @@ anglers_place_boat<-function(lakeGeom,
 
     
     #get random points for each boat
-    myAnglers<-st_buffer(lakeGeom, (-1*boatShorelineBuffer)) %>%
-      st_sample(size=nrow(partyList)) %>%
+    myAnglers<-geo_sampleLakePoints(myLakeSegments, totalPoints=nrow(partyList), mySeed) %>%
       as.data.frame() %>%
       st_as_sf(crs = 6343) %>%
       bind_cols(partyList) %>%
       mutate(anglerType="Boat")
-
-
-  #alter row location so subsequent anglers in a party have a different location
-  #...within a buffered circle (i.e. a boat)
+    
+    #alter row location so subsequent anglers in a party have a different location
+    #...within a buffered circle (i.e. a boat)
     suppressMessages({
       print(paste(getDoParWorkers(), " Cores Will Be Used For Placing Boat Anglers", sep=""))
       
@@ -427,8 +415,9 @@ anglers_place_boat<-function(lakeGeom,
 #   return(tmpAnglers)
 # }
 
-anglers_place<-function(lakeGeom,
-                        lakeName,
+anglers_place<-function(myLakeObject,
+                        #lakeGeom,
+                        #lakeName,
                         totalAnglers,
                         percentBank,
                         meanPartySizeBank,
@@ -458,8 +447,7 @@ anglers_place<-function(lakeGeom,
 
   #create dataset of bank anglers with starting position
   if(percentBank>0){
-    myBankAnglers<-anglers_place_bank(lakeGeom=lakeGeom,
-                                      lakeName=lakeName,
+    myBankAnglers<-anglers_place_bank(myLakeObject=myLakeObject,
                                       numberAnglers=bankAnglers,
                                       meanPartySizeBank=meanPartySizeBank,
                                       maxPartySizeBank=maxPartySizeBank,
@@ -482,7 +470,7 @@ anglers_place<-function(lakeGeom,
   
   #create dataset of boat anglers with starting position
   if(percentBoat>0){
-    myBoatAnglers<-anglers_place_boat(lakeGeom=lakeGeom,
+    myBoatAnglers<-anglers_place_boat(myLakeObject=myLakeObject,
                                       numberAnglers=boatAnglers,
                                       meanPartySizeBoat=meanPartySizeBoat,
                                       maxPartySizeBoat=maxPartySizeBoat,
