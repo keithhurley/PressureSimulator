@@ -21,7 +21,7 @@ casts_create_cast_coords<-function(myCasts){
     st_coordinates() %>%
     data.frame() %>%
     bind_cols(myCasts) %>% 
-    select(anglerId, castId, anglerType, cast_X=X, cast_Y=Y)
+    select(simId, anglerId, partyId, partyAnglerId, castId, anglerType, cast_X=X, cast_Y=Y)
   return(myAnglers_coords)
 }
 
@@ -104,7 +104,7 @@ casts_place<-function(lakeGeom,
                       mySeed){
 
 
-  myCasts<-casts_create_df(myAnglers=myAnglers, 
+  myCasts<-casts_create_df(myAnglers, 
                            castsPerHourMean=castsPerHourMean,
                            castsPerHourSd=castsPerHourSd)
 

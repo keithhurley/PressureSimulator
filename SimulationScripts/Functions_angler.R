@@ -6,7 +6,7 @@ anglers_distributeAnglersIntoParties<-function(numberAnglers=1000,
                                   meanPartySize=2,
                                   maxPartySize=4,
                                   mySeed,
-                                  numberSims=500,
+                                  numberSims=10,
                                   parNumberCores){
 
   #set seed
@@ -129,7 +129,6 @@ anglers_place_bank<-function(myLakeObject,
                              parGroupSize,
                              parNumberCores){
   
-
   #set seed
   set.seed(round(mySeed*0.5475/0.213234,0))
   
@@ -165,6 +164,8 @@ anglers_place_bank<-function(myLakeObject,
                                                     mySeed=mySeed,
                                                     numberSims=numberSims,
                                                     parNumberCores = parNumberCores)
+    
+    
     #get random points for each bank party
     myAnglers<-geo_sampleShorelinePoints(mySegments=myShorelineSegments, 
                                          totalPoints = nrow(partyList), 
@@ -194,7 +195,7 @@ myAnglers2<-myAnglers %>%
       mutate(anglerId=row_number())
     #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
     #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
-    myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$geometry
+    myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$x
     
     # ggplot() +
     #   geom_sf(data=lakeGeom)+
@@ -256,14 +257,13 @@ anglers_place_boat<-function(myLakeObject,
                                          numberSims = numberSims,
                                          parNumberCores=parNumberCores)
 
-    
+
     #get random points for each boat
-    myAnglers<-geo_sampleLakePoints(myLakeSegments, totalPoints=nrow(partyList), mySeed) %>%
-      as.data.frame() %>%
-      st_as_sf(crs = 6343) %>%
-      bind_cols(partyList) %>%
+    myAnglers<-geo_sampleLakePoints(myLakeSegments, totalPoints=partyList %>% group_by(simId) %>% summarise(totalPoints=n()), mySeed) %>%
+      arrange(simId) %>%
+      st_bind_cols(partyList %>% arrange(simId, partyId)) %>%
       mutate(anglerType="Boat")
-    
+
     #alter row location so subsequent anglers in a party have a different location
     #...within a buffered circle (i.e. a boat)
     suppressMessages({

@@ -9,6 +9,9 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
     st_cast("POLYGON", warn=FALSE) %>% 
     st_buffer((-1*myBoatShorelineBuffer))
   
+  #this removes warnings about spatial attribute variables assumed constant
+  st_agr(a)="constant"
+  
   if(any(!is.na(myLakeObject$restrictionsBoat))){
     
     a <- a %>%  
@@ -16,9 +19,13 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
       st_cast("MULTIPOLYGON", warn=FALSE) %>%
       st_cast("POLYGON", warn=FALSE) %>%
       mutate(segmentID=row_number())
+    
+    st_agr(a) = "constant"
   }
   
   if(any(!is.na(myLakeObject$probsBoat))){  
+    
+    st_agr(myLakeObject$probsBoat)="constant"
     
     b <- a %>%
       st_intersection(myLakeObject$probsBoat) %>%
@@ -33,12 +40,18 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
       st_cast("POLYGON", warn=FALSE) %>%
       select(RelativePr)
     
-    d<-b %>%
+    a<-b %>%
       bind_rows(c) %>%
       mutate(segmentID=row_number())
   } 
   
-  return(d)
+  #if base geom was used with no restrictions or priorities...then need to add a RealitivePr column
+  if (!"RelativePr" %in% names(a)) {
+    a<-a %>%
+      mutate(RelativePr=1)
+  }
+  
+  return(a)
   
 }
 
@@ -52,66 +65,61 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
 ##      mySeed         seed value to ensure repeatibility
 
 geo_sampleLakePoints<-function(mySegments, totalPoints, mySeed){
-  
+
   ## set seed
   set.seed(mySeed*123/321+5)
   
   ## get different probability levels
   uniqueProbs<-mySegments %>% st_drop_geometry() %>% group_by(RelativePr) %>% summarise(num=n()) %>% arrange(RelativePr)
   
-  ## get number of points to sample in each probability
+  ## get number of points to sample in each probability and simId
   ## this is tickets in a lottery sampling....size of area DOES NOT play a role
-  numberOfPointsPerProb<-data.frame(RelativePr=sample(uniqueProbs$RelativePr, 
-                                                      size=totalPoints, 
+  numberOfPointsPerProb<-data.frame(RelativePr=sample(uniqueProbs$RelativePr,
+                                                      size=sum(totalPoints$totalPoints), 
                                                       replace=TRUE, 
-                                                      prob=uniqueProbs$RelativePr %>% unique())) %>% 
-    group_by(RelativePr) %>%
+                                                      prob=uniqueProbs$RelativePr %>% 
+                                                        unique()
+                                                      )
+                                    ) %>%
+    bind_cols(totalPoints[rep(seq_len(dim(totalPoints)[1]), totalPoints$totalPoints), 1]) %>%
+    group_by(RelativePr, simId) %>%
     tally(name="totalNumberOfPoints")
+  
   
   ## within each probability, distribute the points among segments
   ##  length of segment DOES matter here....otherwise small areas will be oversampled and etc
-  a<-foreach(intProb=numberOfPointsPerProb$RelativePr, .combine="rbind") %do% {
-    #wrangle data for segments of each probability level
-    op<-mySegments %>%
-      filter(RelativePr==intProb) %>%
-      mutate(segmentLength=st_area(geometry)) %>%
-      st_drop_geometry() %>%
-      left_join(numberOfPointsPerProb) %>%
-      mutate(actualProb=RelativePr * as.numeric(segmentLength))
-    
-    if(length(op$segmentID)==1) {
-      ## assign total number of points to a single segment
-      op$numberOfPoints=op$totalNumberOfPoints 
-      op<-op %>%
-        select(segmentID, numberOfPoints)
-    } else {
-      ## create a dataframe with the number of points to sample in each segment of this probability level
-      mySampleNumbers<- data.frame(segmentID=sample(op$segmentID, 
-                                                    op$totalNumberOfPoints[1], 
-                                                    replace=TRUE,
-                                                    prob=op$actualProb),
-                                   dummy=1) %>%
-        group_by(segmentID) %>%
-        summarise(numberOfPoints=sum(dummy, na.rm=TRUE)) %>%
-        right_join(op %>% select(segmentID)) %>%
-        mutate(numberOfPoints=replace_na(numberOfPoints, 0))
+  
+  ## create a dataframe with the number of points to sample in each segment of this probability level
+      mySampleNumbers<-mySegments %>%
+        mutate(segmentLength=st_area(geometry)) %>%
+        st_drop_geometry() %>%
+        left_join(numberOfPointsPerProb, by=c("RelativePr")) %>%
+        mutate(actualProb=RelativePr * as.numeric(segmentLength)) %>%
+        select(simId, segmentID, totalNumberOfPoints, RelativePr, actualProb) %>%
+        #nest the groups of simID and segments and Probs to form selection possibility list columns
+        group_by(simId, RelativePr, totalNumberOfPoints) %>%
+        nest() %>%
+        ungroup() %>%
+        mutate(sample=map2(data, totalNumberOfPoints, weight=actualProb, replace=TRUE, sample_n)) %>%
+        select(-data) %>%
+        unnest(sample) %>%
+          group_by( simId, segmentID) %>%
+          summarise(numberOfPoints=n())
       
-      ## join back to original data to fill in 0's for any segment that wasn't sampled
-      op<-op %>% 
-        left_join(mySampleNumbers, by=("segmentID")) %>%
-        select(segmentID, numberOfPoints)
-    }
+
+    #create list to sample from
+    a1<-mySegments %>% 
+      right_join(mySampleNumbers, by=c("segmentID"))
     
-    return(op)  
-  }
-  
-  
-  a<-mySegments %>% 
-    left_join(a, by=c("segmentID")) %>%
-    st_sample(size=.$numberOfPoints)  %>%
-    st_cast("POINT")
+    #sample points
+    a<-a1 %>% st_sample(size=.$numberOfPoints)
+    
+    #join back to list to reattach simId
+    a<-a %>%
+      cbind(a1[rep(seq_len(dim(a1)[1]), a1$numberOfPoints), c(3)])
   
   return(a)
+  
 }
 
 
@@ -127,21 +135,27 @@ geo_createShorelineSegments<-function(myLakeObject){
     st_cast("MULTILINESTRING", warn=FALSE) %>%
     st_cast("LINESTRING", warn=FALSE) 
   
+  st_agr(a)="constant"
+  
   if(any(!is.na(myLakeObject$restrictionsShore))){
     
     a <- a %>%  
       st_difference(st_union(myLakeObject$restrictionsShore)) %>%
       st_cast("LINESTRING", warn=FALSE) %>%
       mutate(segmentID=row_number())
+    
+    st_agr(a)="constant"
   }
 
   if(any(!is.na(myLakeObject$probsShore))){  
+  
+    st_agr(myLakeObject$probsShore)="constant"
     
     b <- a %>%
       st_intersection(myLakeObject$probsShore) %>%
       select(RelativePr) %>%
       st_cast("LINESTRING", warn=FALSE)
-    
+  
     c<-a %>%
       st_difference(st_union(b)) %>%
       mutate(RelativePr=1) %>%
@@ -149,12 +163,18 @@ geo_createShorelineSegments<-function(myLakeObject){
       st_cast("LINESTRING", warn=FALSE) %>%
       select(RelativePr)
     
-    d<-b %>%
+    a<-b %>%
       bind_rows(c) %>%
       mutate(segmentID=row_number())
   } 
 
-  return(d)
+  #if base geom was used with no restrictions or priorities...then need to add a RealitivePr column
+  if (!"RelativePr" %in% names(a)) {
+    a<-a %>%
+      mutate(RelativePr=1)
+  }
+  
+  return(a)
 
   }
 
@@ -192,7 +212,7 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
       filter(RelativePr==intProb) %>%
       mutate(segmentLength=st_length(geometry)) %>%
       st_drop_geometry() %>%
-      left_join(numberOfPointsPerProb) %>%
+      left_join(numberOfPointsPerProb, by=c("RelativePr")) %>%
       mutate(actualProb=RelativePr * as.numeric(segmentLength))
     
     if(length(op$segmentID)==1) {
@@ -209,7 +229,7 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
                                    dummy=1) %>%
         group_by(segmentID) %>%
         summarise(numberOfPoints=sum(dummy, na.rm=TRUE)) %>%
-        right_join(op %>% select(segmentID)) %>%
+        right_join(op %>% select(segmentID), by=c("segmentID")) %>%
         mutate(numberOfPoints=replace_na(numberOfPoints, 0))
       
       ## join back to original data to fill in 0's for any segment that wasn't sampled
@@ -233,38 +253,38 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
 
 
 
-
-
-probs<-geo_createShorelineSegments(myLakeObject)
- pts<-geo_sampleShorelinePoints(probs, 100, 1234)
- 
- ggplot() +
-   geom_sf(data=myLakeObject$lakeGeom, fill="lightblue") +
-   geom_sf(data=myLakeObject$restrictionsShore, fill="white",color="gray70", alpha=.6) +
-   geom_sf(data=myLakeObject$probsShore %>% mutate(RelativePr=factor(RelativePr)), aes(fill=RelativePr), color=NA, alpha=0.3) +
-   geom_sf(data=pts, size=2, color="black") +
-   scale_size_manual(values=c(10, 20, 30, 40, 50)) +
-   scale_color_viridis_d() +
-   labs(fill="Relative \nProbability", title="Shore Angler Placement", subtitle="White areas were considered restricted.") +
-   theme_void() +
-   theme(plot.title=element_text(hjust=0.2),
-         plot.subtitle=element_text(hjust=0.3))
- 
-
-
- probs<-geo_createLakeSegments(myLakeObject)
- pts<-geo_sampleLakePoints(probs, 100, 1234)
- 
- ggplot() +
-   geom_sf(data=myLakeObject$lakeGeom, fill="lightblue") +
-   geom_sf(data=myLakeObject$restrictionsBoat, fill="white",color="gray70", alpha=.6) +
-   geom_sf(data=myLakeObject$probsBoat %>% mutate(RelativePr=factor(RelativePr)), aes(fill=RelativePr), color=NA, alpha=0.8) +
-   geom_sf(data=pts, size=2, color="black") +
-   scale_size_manual(values=c(10, 20, 30, 40, 50)) +
-   scale_color_viridis_d() +
-   labs(fill="Relative \nProbability", title="Boat Angler Placement", subtitle="White areas were considered restricted.") +
-   theme_void() +
-   theme(plot.title=element_text(hjust=0.2),
-         plot.subtitle=element_text(hjust=0.3))
-
-         
+# 
+# 
+# probs<-geo_createShorelineSegments(myLakeObject)
+#  pts<-geo_sampleShorelinePoints(probs, 100, 1234)
+#  
+#  ggplot() +
+#    geom_sf(data=myLakeObject$lakeGeom, fill="lightblue") +
+#    geom_sf(data=myLakeObject$restrictionsShore, fill="white",color="gray70", alpha=.6) +
+#    geom_sf(data=myLakeObject$probsShore %>% mutate(RelativePr=factor(RelativePr)), aes(fill=RelativePr), color=NA, alpha=0.3) +
+#    geom_sf(data=pts, size=2, color="black") +
+#    scale_size_manual(values=c(10, 20, 30, 40, 50)) +
+#    scale_color_viridis_d() +
+#    labs(fill="Relative \nProbability", title="Shore Angler Placement", subtitle="White areas were considered restricted.") +
+#    theme_void() +
+#    theme(plot.title=element_text(hjust=0.2),
+#          plot.subtitle=element_text(hjust=0.3))
+#  
+# 
+# 
+#  probs<-geo_createLakeSegments(myLakeObject)
+#  pts<-geo_sampleLakePoints(probs, 100, 1234)
+#  
+#  ggplot() +
+#    geom_sf(data=myLakeObject$lakeGeom, fill="lightblue") +
+#    geom_sf(data=myLakeObject$restrictionsBoat, fill="white",color="gray70", alpha=.6) +
+#    geom_sf(data=myLakeObject$probsBoat %>% mutate(RelativePr=factor(RelativePr)), aes(fill=RelativePr), color=NA, alpha=0.8) +
+#    geom_sf(data=pts, size=2, color="black") +
+#    scale_size_manual(values=c(10, 20, 30, 40, 50)) +
+#    scale_color_viridis_d() +
+#    labs(fill="Relative \nProbability", title="Boat Angler Placement", subtitle="White areas were considered restricted.") +
+#    theme_void() +
+#    theme(plot.title=element_text(hjust=0.2),
+#          plot.subtitle=element_text(hjust=0.3))
+# 
+#          

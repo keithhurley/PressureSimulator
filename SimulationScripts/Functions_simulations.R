@@ -48,6 +48,7 @@ sims_runSimulations<-function(myLakeObject,
   #process spatial data for interactions
   tmpFish<-st_intersects(st_buffer(myResults$myFish, 1), myResults$myCasts)
   tmpFish %>% lengths
+  
   #create dataframe of all interactions
   myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), tmpFish %>% lengths), 2] %>% as.data.frame() %>% select(-geometry)
   myResults$myInteractions$anglerId<-myResults$myCasts$anglerId[unlist(tmpFish[tmpFish %>% lengths>0])]

@@ -1,4 +1,5 @@
   options(stringsAsFactors=FALSE)
+  options(dplyr.summarise.inform = FALSE)
   
   library(tictoc)
   library(sf)

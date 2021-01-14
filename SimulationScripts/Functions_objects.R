@@ -192,7 +192,7 @@ obj_create_default_simulations_object<-function(){
                                saveNameBase="delete_me_dev",
                                seed=12345,
                                parGroupSize=10, #must be at least 3?
-                               parNumberCores=2)
+                               parNumberCores=12)
   return(d)
   }
 
