@@ -164,21 +164,16 @@ anglers_place_bank<-function(myLakeObject,
                                                     mySeed=mySeed,
                                                     numberSims=numberSims,
                                                     parNumberCores = parNumberCores)
-    
-    
-    #get random points for each bank party
-    myAnglers<-geo_sampleShorelinePoints(mySegments=myShorelineSegments, 
-                                         totalPoints = nrow(partyList), 
-                                         mySeed=mySeed) %>%
-      #st_cast() %>%
-      #as.data.frame() %>%
-      #st_as_sf(crs = 6343) %>% unique() %>%
-      bind_cols(partyList) 
-    
+
+    #get random points for each boat
+    myAnglers<-geo_sampleShorelinePoints(mySegments=myShorelineSegments, totalPoints=partyList %>% group_by(simId) %>% summarise(totalPoints=n()), mySeed) %>%
+      arrange(simId) %>%
+      st_bind_cols(partyList %>% arrange(simId, partyId)) %>%
+      mutate(anglerType="Bank")
+
     #alter row location so subsequent anglers in a party have a different location
     #...within a buffered circle (i.e. a boat)
     myAnglers_buf<-st_buffer(myAnglers, anglerBankPartyRadius * ifelse(myAnglers$numberInParty-1==0, 1, myAnglers$numberInParty))  
-
     #create linestring of shoreline minus restrictions
     myShoreline=st_union(myShorelineSegments)
     
@@ -195,7 +190,7 @@ myAnglers2<-myAnglers %>%
       mutate(anglerId=row_number())
     #by resampling partyAngler #1 it "shifts" the whole boat, potentially outside
     #the boundaries of the lake/area, therefore replace the original partyAngler #1 coordinates
-    myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$x
+    myAnglers2$geometry[myAnglers2$partyAnglerId==1]<-myAnglers$geometry
     
     # ggplot() +
     #   geom_sf(data=lakeGeom)+
@@ -442,7 +437,7 @@ anglers_place<-function(myLakeObject,
                         parGroupSize,
                         parNumberCores){
 
-  #calculate remaining precentages
+  #calculate remaining percentages
   percentBoat<-(100-percentBank)
 
   #create dataset of bank anglers with starting position

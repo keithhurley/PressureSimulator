@@ -3,7 +3,7 @@ myParamsObject=myParamsObject
 mySimsObject=mySimsObject
 
 
-
+#angler place
 myLakeObject=myLakeObject
 anglerBoatDistribution = myParamsObject$anglerBoatDistribution
 anglerBankDistribution = myParamsObject$anglerBankDistribution
@@ -28,6 +28,7 @@ parGroupSize=mySimsObject$parGroupSize
 parNumberCores=mySimsObject$parNumberCores
 
 
+#boat angler place
 myLakeObject=myLakeObject
 numberAnglers=boatAnglers
 meanPartySizeBoat=meanPartySizeBoat
@@ -41,4 +42,28 @@ mySeed=mySeed
 numberSims=numberSims
 parGroupSize
 parNumberCores=12
+
+
+#bank angler place
+myLakeObject=myLakeObject
+numberAnglers=bankAnglers
+meanPartySizeBank=meanPartySizeBank
+maxPartySizeBank=maxPartySizeBank
+anglerBankDistribution = anglerBankDistribution
+anglerBankPartyRadius=anglerBankPartyRadius
+anglerBankRestrictions = anglerBankRestrictions
+anglerBankProbs= anglerBankProbs
+mySeed=mySeed
+numberSims=numberSims
+parGroupSize
+parNumberCores
+
+#casts place
+lakeGeom=myLakeObject$lakeGeom
+myAnglers=myResults$myAnglers 
+castDistanceMean=myParamsObject$castDistanceMean
+castDistanceSd=myParamsObject$castDistanceSd
+castsPerHourMean=myParamsObject$castsPerHourMean
+castsPerHourSd=myParamsObject$castsPerHourSd
+mySeed=mySimsObject$seed
 

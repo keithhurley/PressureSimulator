@@ -380,6 +380,7 @@ server <- function(input, output, session) {
                         parGroupSize=input$ipGroupSize, #must be at least 3?
                         parNumberCores=input$ipNumberOfCores)
                     
+
                     myResults<<-sims_runSimulations(myLakeObject,
                                         myParamsObject,
                                         mySimsObject)

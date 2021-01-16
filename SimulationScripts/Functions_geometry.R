@@ -48,7 +48,9 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
   #if base geom was used with no restrictions or priorities...then need to add a RealitivePr column
   if (!"RelativePr" %in% names(a)) {
     a<-a %>%
-      mutate(RelativePr=1)
+      mutate(RelativePr=1) %>%
+      mutate(segmentID=row_number()) %>%
+      select(RelativePr, segmentID) 
   }
   
   return(a)
@@ -142,7 +144,7 @@ geo_createShorelineSegments<-function(myLakeObject){
     a <- a %>%  
       st_difference(st_union(myLakeObject$restrictionsShore)) %>%
       st_cast("LINESTRING", warn=FALSE) %>%
-      mutate(segmentID=row_number())
+      mutate(segmentID=row_number()) 
     
     st_agr(a)="constant"
   }
@@ -165,13 +167,15 @@ geo_createShorelineSegments<-function(myLakeObject){
     
     a<-b %>%
       bind_rows(c) %>%
-      mutate(segmentID=row_number())
+      mutate(segmentID=row_number()) 
   } 
 
-  #if base geom was used with no restrictions or priorities...then need to add a RealitivePr column
+  #if base geom was used with no restrictions or priorities...then need to add a RelativePr column
   if (!"RelativePr" %in% names(a)) {
     a<-a %>%
-      mutate(RelativePr=1)
+      mutate(RelativePr=1) %>%
+      mutate(segmentID=row_number()) %>%
+      select(RelativePr, segmentID) 
   }
   
   return(a)
@@ -198,57 +202,49 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
   ## get number of points to sample in each probability
   ## this is tickets in a lottery sampling....size of area DOES NOT play a role
   numberOfPointsPerProb<-data.frame(RelativePr=sample(uniqueProbs$RelativePr, 
-                                                      size=totalPoints, 
+                                                      size=sum(totalPoints$totalPoints), 
                                                       replace=TRUE, 
-                                                      prob=uniqueProbs$RelativePr %>% unique())) %>% 
-    group_by(RelativePr) %>%
+                                                      prob=uniqueProbs$RelativePr %>% 
+                                                        unique()
+                                                      )
+                                    ) %>% 
+    bind_cols(totalPoints[rep(seq_len(dim(totalPoints)[1]), totalPoints$totalPoints), 1]) %>%
+    group_by(RelativePr, simId) %>%
     tally(name="totalNumberOfPoints")
   
   ## within each probability, distribute the points among segments
   ##  length of segment DOES matter here....otherwise small areas will be oversampled and etc
-  a<-foreach(intProb=numberOfPointsPerProb$RelativePr, .combine="rbind") %do% {
-    #wrangle data for segments of each probability level
-    op<-mySegments %>%
-      filter(RelativePr==intProb) %>%
+    mySampleNumbers<-mySegments %>%
       mutate(segmentLength=st_length(geometry)) %>%
       st_drop_geometry() %>%
       left_join(numberOfPointsPerProb, by=c("RelativePr")) %>%
-      mutate(actualProb=RelativePr * as.numeric(segmentLength))
+      mutate(actualProb=RelativePr * as.numeric(segmentLength)) %>%
+      select(simId, segmentID, totalNumberOfPoints, RelativePr, actualProb) %>%
+      #nest the groups of simID and segments and Probs to form selection possibility list columns
+      group_by(simId, RelativePr, totalNumberOfPoints) %>%
+      nest() %>%
+      ungroup() %>%
+      mutate(sample=map2(data, totalNumberOfPoints, weight=actualProb, replace=TRUE, sample_n)) %>%
+      select(-data) %>%
+      unnest(sample) %>%
+      group_by( simId, segmentID) %>%
+      summarise(numberOfPoints=n())
     
-    if(length(op$segmentID)==1) {
-      ## assign total number of points to a single segment
-      op$numberOfPoints=op$totalNumberOfPoints 
-      op<-op %>%
-        select(segmentID, numberOfPoints)
-    } else {
-      ## create a dataframe with the number of points to sample in each segment of this probability level
-      mySampleNumbers<- data.frame(segmentID=sample(op$segmentID, 
-                                                    op$totalNumberOfPoints[1], 
-                                                    replace=TRUE,
-                                                    prob=op$actualProb),
-                                   dummy=1) %>%
-        group_by(segmentID) %>%
-        summarise(numberOfPoints=sum(dummy, na.rm=TRUE)) %>%
-        right_join(op %>% select(segmentID), by=c("segmentID")) %>%
-        mutate(numberOfPoints=replace_na(numberOfPoints, 0))
-      
-      ## join back to original data to fill in 0's for any segment that wasn't sampled
-      op<-op %>% 
-        left_join(mySampleNumbers, by=("segmentID")) %>%
-        select(segmentID, numberOfPoints)
-    }
+    #create list to sample from
+    a1<-mySegments %>% 
+      right_join(mySampleNumbers, by=c("segmentID")) 
     
-    return(op)  
-  }
-  
-  
-  a<-mySegments %>% 
-    left_join(a, by=c("segmentID")) %>%
-    st_sample(size=.$numberOfPoints)  %>%
-    st_cast("POINT") %>%
-    st_as_sf(crs=6343)
-  
-  return(a)
+        #sample points
+    a<-a1 %>% st_sample(size=.$numberOfPoints) %>% st_cast("POINT")
+    
+    #join back to list to reattach simId
+    a<-a %>%
+      cbind(a1[rep(seq_len(dim(a1)[1]), a1$numberOfPoints), c(3)] %>%
+              st_drop_geometry()) %>%
+      st_as_sf(crs=6343)
+    
+    return(a)
+    
 }
 
 
