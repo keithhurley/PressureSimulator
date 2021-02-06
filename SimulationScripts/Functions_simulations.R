@@ -9,10 +9,15 @@ sims_runSimulations<-function(myLakeObject,
   
   myResults<-list()
 
-  myResults$myFish<-fish_place_random(lakeGeom=myLakeObject$lakeGeom,
+  myResults$myFish<-fish_place(myLakeObject=myLakeObject,
                             numberFish=myParamsObject$numberFish,
+                            fishDistribution=myParamsObject$fishDistribution,
                             fishShorelineBuffer = myParamsObject$fishShorelineBuffer,
-                            mySeed=mySimsObject$seed)
+                            fishMeanNumberPerSchool = myParamsObject$fishMeanNumberPerSchool,
+                            fishSchoolingDistance = myParamsObject$fishSchoolingDistance,
+                            mySeed=mySimsObject$seed,
+                            parGroupSize=mySimsObject$parGroupSize,
+                            parNumberCores=mySimsObject$parNumberCores)
 
   myResults$myAnglers<-anglers_place(myLakeObject=myLakeObject,
                            anglerBoatDistribution = myParamsObject$anglerBoatDistribution,
@@ -50,7 +55,7 @@ sims_runSimulations<-function(myLakeObject,
   tmpFish %>% lengths
   
   #create dataframe of all interactions
-  myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), tmpFish %>% lengths), 2] %>% as.data.frame() %>% select(-geometry)
+  myResults$myInteractions<-myResults$myFish[rep(seq_len(dim(myResults$myFish)[1]), tmpFish %>% lengths), 2] %>% st_drop_geometry() # as.data.frame() %>% select(-geometry)
   myResults$myInteractions$anglerId<-myResults$myCasts$anglerId[unlist(tmpFish[tmpFish %>% lengths>0])]
   myResults$myInteractions$castId<-myResults$myCasts$castId[unlist(tmpFish[tmpFish %>% lengths>0])]
   myResults$myInteractions<-myResults$myInteractions %>%

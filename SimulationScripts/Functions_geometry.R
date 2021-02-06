@@ -59,6 +59,7 @@ geo_createLakeSegments<-function(myLakeObject, myBoatShorelineBuffer=1){
 
 
 
+
 ##  this function takes in a list of segments with probabilities and samples points on them
 ##  segments are polygons
 ##  arguements:
@@ -247,6 +248,89 @@ geo_sampleShorelinePoints<-function(mySegments, totalPoints, mySeed){
     
 }
 
+
+
+##  this function creates a linestring for the lake, removes any restricted area, 
+##  and creates Relative Probabilities for each polygon
+##  arguements:
+##      myLakeObject  the lake object used for the current simulation
+
+geo_createFishSegments<-function(myLakeObject, myFishShorelineBuffer=1){
+  
+  a<-myLakeObject$lakeGeom %>%
+    st_cast("POLYGON", warn=FALSE) %>% 
+    st_buffer((-1*myFishShorelineBuffer))
+  
+  #this removes warnings about spatial attribute variables assumed constant
+  st_agr(a)="constant"
+  
+  if(any(!is.na(myLakeObject$restrictionsFish))){
+    
+    a <- a %>%  
+      st_difference(st_union(myLakeObject$restrictionsFish)) %>%
+      st_cast("MULTIPOLYGON", warn=FALSE) %>%
+      st_cast("POLYGON", warn=FALSE) %>%
+      mutate(segmentID=row_number())
+    
+    st_agr(a) = "constant"
+  }
+  
+  if(any(!is.na(myLakeObject$probsFish))){  
+    
+    st_agr(myLakeObject$probsFish)="constant"
+    
+    b <- a %>%
+      st_intersection(myLakeObject$probsFish) %>%
+      st_cast("MULTIPOLYGON", warn=FALSE) %>%
+      st_cast("POLYGON", warn=FALSE) %>%
+      select(RelativePr)
+    
+    c<-a %>%
+      st_difference(st_union(b)) %>%
+      mutate(RelativePr=1) %>%
+      st_cast("MULTIPOLYGON", warn=FALSE) %>%
+      st_cast("POLYGON", warn=FALSE) %>%
+      select(RelativePr)
+    
+    a<-b %>%
+      bind_rows(c) %>%
+      mutate(segmentID=row_number())
+  } 
+  
+  #if base geom was used with no restrictions or priorities...then need to add a RealitivePr column
+  if (!"RelativePr" %in% names(a)) {
+    a<-a %>%
+      mutate(RelativePr=1) %>%
+      mutate(segmentID=row_number()) %>%
+      select(RelativePr, segmentID) 
+  }
+  
+  return(a)
+  
+}
+
+
+#create polygon of lake with fishShorelineBuffer and restricted areas
+geo_createFishAreaPolygon<-function(myLakeObject, fishShorelineBuffer) {
+  myPoly<-myLakeObject$lakeGeom %>%
+    st_cast("POLYGON", warn=FALSE) %>% 
+    st_buffer(-1*fishShorelineBuffer)
+  
+  #this removes warnings about spatial attribute variables assumed constant
+  st_agr(a)="constant"
+  
+  if(any(!is.na(myLakeObject$restrictionsFish))){
+    
+    a <- a %>%  
+      st_difference(st_union(myLakeObject$restrictionsFish)) %>%
+      st_cast("MULTIPOLYGON", warn=FALSE) %>%
+      st_cast("POLYGON", warn=FALSE) %>%
+      mutate(segmentID=row_number())
+    
+    st_agr(a) = "constant"
+  }
+  return(myPoly)
+}
 
 
 # 

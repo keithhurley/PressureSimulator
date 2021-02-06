@@ -26,17 +26,29 @@ ui <- fluidPage(
                                                   tags$b("Acres: "),
                                                   textOutput("opLakeAcres")
                                                   )
-                                              ),
+                                              )),
+                                      tags$br(),
                                       selectInput('ipLakeGeom',
                                                   'Select A Lake',
                                                   choice = list.dirs(path='./data/lakes/',recursive=FALSE, full.names = FALSE)
                                                   ),
-                                      uiOutput("restrictionShoreSelection"),
-                                      uiOutput("restrictionLakeSelection"),
-                                      uiOutput("probShoreSelection"),
-                                      uiOutput("probLakeSelection")
-                )
-                ),
+                                      tabsetPanel(type="tabs",
+                                                  tabPanel("Restrictions: ",
+                                                           tags$div(style="background: gainsboro; padding:10px",
+                                                                    uiOutput("restrictionShoreSelection"),
+                                                                    uiOutput("restrictionLakeSelection"),
+                                                                    uiOutput("restrictionFishSelection")
+                                                                    )
+                                                            ),
+                                                  tabPanel("Area Probabilities: ",
+                                                           tags$div(style="background: gainsboro; padding:10px",
+                                                                    uiOutput("probShoreSelection"),
+                                                                    uiOutput("probLakeSelection"),
+                                                                    uiOutput("probFishSelection")
+                                                                    )
+                                                           )
+                                                    )
+                                      ),
                              tabPanel("Anglers",
                                       selectInput("ipAnglerDistributionType",
                                                   "Distribution Type",
@@ -128,7 +140,32 @@ ui <- fluidPage(
                                                   min=0.25,
                                                   max=10,
                                                   step=0.25,
-                                                  value=1)),
+                                                  value=1),
+                                      selectInput("ipFishDistributionType",
+                                                  "Distribution Type",
+                                                  choices=c("Random", 
+                                                            "Schooling"),
+                                                  selected="Schooling"),
+                                      conditionalPanel("input.ipFishDistributionType == 'Schooling'",
+                                                       tags$span(style="font-weight:bold",
+                                                                 "Schooling Fish Options: "),
+                                                       tags$div(style="background: gainsboro; padding:10px; margin-bottom:10px;",
+                                                                sliderInput("ipMeanNumberPerSchool",
+                                                                            "Mean Number Of Fish Per School",
+                                                                            min=2,
+                                                                            max=1000,
+                                                                            step=1,
+                                                                            value=10),
+                                                                sliderInput("ipSchoolingDistance",
+                                                                            "Max Distance Between Two Schooling Fish (Max Radius Of School = (Mean Number Per School / 2) * Max Distance Between Two Schooling Fish)",
+                                                                            min=0.25,
+                                                                            max=3,
+                                                                            step=0.25,
+                                                                            value=1),
+                                                                
+                                                       )
+                                      ),
+                                      ),
                              tabPanel("Pressure",
                                       sliderInput("ipHoursPerAcre", 
                                                   "Hours Per Acre:",
@@ -241,7 +278,7 @@ server <- function(input, output, session) {
     #myResults<-reactiveVal()
     #myResults(NULL)
     
-    
+
     #this runs the save directory selection box
     observeEvent(
         ignoreNULL = TRUE,
@@ -284,17 +321,35 @@ server <- function(input, output, session) {
                     choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/restrictions/lake/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
     })
     
+    output$restrictionFishSelection <- renderUI({
+        selectInput("ipFishRestrictions", 
+                    "Select A Fish Restriction: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/restrictions/fish/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+    })
+    
     output$probShoreSelection <- renderUI({
-        selectInput("ipShoreRestrictions", 
+        selectInput("ipShoreProbs", 
                     "Select A Shoreline Probability Map: ",
                     choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/probs/shore/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
     })
     
     output$probLakeSelection <- renderUI({
-        selectInput("ipShoreRestrictions", 
+        selectInput("ipLakeProbs", 
                     "Select A Lake Probability Map: ",
                     choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/probs/lake/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
     })
+    
+    output$probFishSelection <- renderUI({
+        selectInput("ipFishProbs", 
+                    "Select A Fish Probability Map: ",
+                    choice = c("None", gsub("//.rData", "", list.files(path=paste("./data/lakes/",input$ipLakeGeom,"/probs/fish/", sep=""), pattern=".rData", recursive=FALSE, full.names = FALSE))))
+    })
+    
+    #must set output options or renderUI calls on hidden tabs won't set values unless tab is shown
+    outputOptions(output, "probShoreSelection", suspendWhenHidden = FALSE)
+    outputOptions(output, "probLakeSelection", suspendWhenHidden = FALSE) 
+    outputOptions(output, "probFishSelection", suspendWhenHidden = FALSE) 
+    
     
     output$opLakeName=renderText(myValues$lakeName)
     
@@ -334,7 +389,32 @@ server <- function(input, output, session) {
                                                               input$ipShoreRestrictions=="None",
                                                               NA,
                                                               paste("./data/lakes/", input$ipLakeGeom, "/restrictions/shore/", input$ipShoreRestrictions, sep="")
-                                                              )
+                                                              ),
+                                                          restrictionsLake_path = ifelse(
+                                                              input$ipLakeRestrictions=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/restrictions/lake/", input$ipLakeRestrictions, sep="")
+                                                          ),
+                                                          restrictionsFish_path = ifelse(
+                                                              input$ipFishRestrictions=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/restrictions/fish/", input$ipFishRestrictions, sep="")
+                                                          ),
+                                                          probsShore_path = ifelse(
+                                                              input$ipShoreProbs=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/probs/shore/", input$ipShoreProbs, sep="")
+                                                          ),
+                                                          probsLake_path = ifelse(
+                                                              input$ipLakeProbs=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/probs/lake/", input$ipLakeProbs, sep="")
+                                                          ),
+                                                          probsFish_path = ifelse(
+                                                              input$ipFishProbs=="None",
+                                                              NA,
+                                                              paste("./data/lakes/", input$ipLakeGeom, "/probs/fish/", input$ipFishProbs, sep="")
+                                                          )
                     )
                     # ggplot() +
                     #     geom_sf(data=myLakeObject$lakeGeom, color="blue") +
@@ -353,6 +433,9 @@ server <- function(input, output, session) {
                         castDistanceSd=input$ipCastDistanceSd,
                         numberFish=input$ipNumberFish,
                         fishShorelineBuffer=input$ipFishShorelineBuffer,
+                        fishDistribution=input$ipFishDistributionType,
+                        fishMeanNumberPerSchool=input$ipMeanNumberPerSchool,
+                        fishSchoolingDistance=input$ipSchoolingDistance,
                         anglerBoatDistribution=input$ipAnglerDistributionType,
                         anglerBankDistribution=input$ipAnglerDistributionType,
                         anglerBoatPartyRadius=input$ipBoatAnglerPartyClusterRadius,

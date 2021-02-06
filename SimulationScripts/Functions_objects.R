@@ -4,19 +4,23 @@
 obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake object
                              lakeGeom_path=NA,
                              restrictionsShore_path=NA,
-                             restrictionsBoat_path=NA,
+                             restrictionsLake_path=NA,
+                             restrictionsFish_path=NA,
                              probsShore_path=NA,
-                             probsBoat_path=NA){
-
-    if (is.na(lake_object)) {
+                             probsLake_path=NA,
+                             probsFish_path=NA){
+  
+  if (is.na(lake_object)) {
     myLake<-list()
     myLake$lakeGeom=NA
     myLake$lakeName=NA
     myLake$lakeAcres=NA
     myLake$restrictionsShore=NA
-    myLake$restrictionsBoat=NA
+    myLake$restrictionsLake=NA
+    myLake$restrictionsFish=NA
     myLake$probsShore=NA
-    myLake$probsBoat=NA
+    myLake$probsLake=NA
+    myLake$probsFish=NA
   }
   
   
@@ -34,10 +38,16 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
     rm(lake_restrictions_shore)
   }
 
-  if (!is.na(restrictionsBoat_path)) {
-    load(file=restrictionsBoat_path)
-    myLake$restrictionsBoat<-lake_restrictions_boat
-    rm(lake_restrictions_boat)
+  if (!is.na(restrictionsLake_path)) {
+    load(file=restrictionsLake_path)
+    myLake$restrictionslake<-lake_restrictions_lake
+    rm(lake_restrictions_lake)
+  }
+
+  if (!is.na(restrictionsFish_path)) {
+    load(file=restrictionsFish_path)
+    myLake$restrictionsFish<-lake_restrictions_fish
+    rm(lake_restrictions_fish)
   }
 
   if (!is.na(probsShore_path)) {
@@ -46,12 +56,18 @@ obj_create_lake_object<-function(lake_object=NA, #allows to modify existing lake
     rm(lake_probs_shore)
   }
 
-  if (!is.na(probsBoat_path)) {
-    load(file=probsBoat_path)
-    myLake$probsBoat<-lake_probs_boat
-    rm(lake_probs_boat)
+  if (!is.na(probsLake_path)) {
+    load(file=probsLake_path)
+    myLake$probsLake<-lake_probs_lake
+    rm(lake_probs_lake)
   }
   
+  if (!is.na(probsFish_path)) {
+    load(file=probsFish_path)
+    myLake$probsFish<-lake_probs_fish
+    rm(lake_probs_fish)
+  }
+    
   return(myLake)
 }
 
@@ -59,8 +75,10 @@ obj_create_default_lake_object<-function(){
   d<-obj_create_lake_object(lakeGeom_path = "./data/lakes/round_1/lake.rData",
                         restrictionsShore_path = "./data/lakes/round_1/restrictions/shore/Shore_Restrictions.rData",
                         probsShore_path = "./data/lakes/round_1/probs/shore/OverlappingProbs.rData",
-                        restrictionsBoat_path = "./data/lakes/round_1/restrictions/lake/LakeRestrictions1.rData",
-                        probsBoat_path = "./data/lakes/round_1/probs/lake/LakeProbs1Split.rData")
+                        restrictionsLake_path = "./data/lakes/round_1/restrictions/lake/LakeRestrictions1.rData",
+                        probsLake_path = "./data/lakes/round_1/probs/lake/LakeProbs1Split.rData",
+                        restrictionsFish_path = NA,
+                        probsFish_path = NA)
   return(d)
 }
 
@@ -81,6 +99,9 @@ obj_create_parameters_object<-function(acres,
                                    castDistanceSd,
                                    numberFish,
                                    fishShorelineBuffer,
+                                   fishDistribution,
+                                   fishMeanNumberPerSchool,
+                                   fishSchoolingDistance,
                                    anglerBoatDistribution,
                                    anglerBankDistribution,
                                    anglerBoatPartyRadius,
@@ -90,7 +111,6 @@ obj_create_parameters_object<-function(acres,
                                    meanPartySizeBank,
                                    maxPartySizeBank,
                                    boatShorelineBuffer,
-                                   anglerBankRestrictions,
                                    percentBank) 
   {
     myParamObject<-list()
@@ -105,6 +125,9 @@ obj_create_parameters_object<-function(acres,
     myParamObject$castDistanceSd=castDistanceSd
     myParamObject$numberFish =numberFish
     myParamObject$fishShorelineBuffer =fishShorelineBuffer
+    myParamObject$fishDistribution=fishDistribution
+    myParamObject$fishMeanNumberPerSchool=fishMeanNumberPerSchool
+    myParamObject$fishSchoolingDistance=fishSchoolingDistance
     myParamObject$anglerBoatDistribution=anglerBoatDistribution 
     myParamObject$anglerBankDistribution=anglerBankDistribution 
     myParamObject$anglerBoatPartyRadius=anglerBoatPartyRadius 
@@ -140,6 +163,9 @@ obj_create_default_parameters_object<-function(){
     castDistanceSd=3,
     numberFish=100,
     fishShorelineBuffer=0.5,
+    fishDistribution = "Schooling",
+    fishMeanNumberPerSchool=10,
+    fishSchoolingDistance=0.5,
     anglerBoatDistribution="Clustered By Party",
     anglerBankDistribution="Clustered By Party",
     anglerBoatPartyRadius=1.5,
